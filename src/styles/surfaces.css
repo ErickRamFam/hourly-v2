@@ -1,0 +1,220 @@
+/* Hourly — surface recipes. Flat single-class selectors; compose with Tailwind utilities. */
+
+/* ---- Page background: base gradient, hour-washed ---- */
+.page-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    linear-gradient(170deg, var(--page-wash, var(--hour-wash)), transparent var(--wash-stop, 60%)),
+    linear-gradient(170deg, var(--paper) 0%, color-mix(in oklab, var(--paper) 55%, var(--mist)) 55%, var(--mist) 100%);
+}
+
+/* ---- Aurora: three big radial blobs, partly off-canvas, hour-tinted, slow drift ----
+   Markup: <div class="aurora"><i class="aurora-a"></i><i class="aurora-b"></i><i class="aurora-c"></i></div> */
+.aurora {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  filter: blur(48px);
+}
+.aurora-a,
+.aurora-b,
+.aurora-c {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  will-change: transform;
+}
+.aurora-a {
+  width: 68vw; height: 68vw; min-width: 640px; min-height: 640px;
+  left: -14vw; top: -22vw;
+  background: radial-gradient(circle at 50% 50%,
+    color-mix(in oklab, var(--aurora-a-tint, var(--hour)) calc(var(--aurora-alpha) * 100%), transparent) 0%,
+    color-mix(in oklab, var(--aurora-a-tint, var(--hour)) calc(var(--aurora-alpha) * 45%), transparent) 38%,
+    transparent 70%);
+  animation: aurora-drift-a 84s var(--ease-glide) infinite alternate;
+}
+.aurora-b {
+  width: 56vw; height: 56vw; min-width: 520px; min-height: 520px;
+  right: -18vw; bottom: -26vw;
+  background: radial-gradient(circle at 50% 50%,
+    color-mix(in oklab, var(--aurora-b-tint, var(--hour-next)) calc(var(--aurora-alpha) * 80%), transparent) 0%,
+    color-mix(in oklab, var(--aurora-b-tint, var(--hour-next)) calc(var(--aurora-alpha) * 30%), transparent) 40%,
+    transparent 70%);
+  animation: aurora-drift-b 96s var(--ease-glide) infinite alternate;
+}
+.aurora-c {
+  width: 34vw; height: 34vw; min-width: 320px; min-height: 320px;
+  right: 8vw; top: -12vw;
+  background: radial-gradient(circle at 50% 50%,
+    color-mix(in oklab, var(--aurora-c-tint, var(--hour)) calc(var(--aurora-alpha) * 50%), transparent) 0%,
+    transparent 68%);
+  animation: aurora-drift-c 68s var(--ease-glide) infinite alternate;
+}
+@keyframes aurora-drift-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(6vw, 4vw, 0) scale(1.08); }
+}
+@keyframes aurora-drift-b {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(-5vw, -6vw, 0) scale(1.06); }
+}
+@keyframes aurora-drift-c {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-4vw, 3vw, 0); }
+}
+
+/* ---- Halo behind the clock ----
+   JS sets --halo-x/--halo-y so the light originates at the lit section:
+   a = (hour%12 + .5) * 30deg; x = 50 + 16*sin(a) %; y = 50 - 16*cos(a) %. */
+.halo {
+  position: absolute;
+  inset: -30%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle at var(--halo-x, 50%) var(--halo-y, 50%),
+    color-mix(in oklab, var(--hour-glow) calc(var(--halo-alpha) * 100%), transparent) 0%,
+    color-mix(in oklab, var(--hour-glow) calc(var(--halo-alpha) * 62%), transparent) 18%,
+    color-mix(in oklab, var(--hour-glow) calc(var(--halo-alpha) * 28%), transparent) 36%,
+    color-mix(in oklab, var(--hour-glow) calc(var(--halo-alpha) * 8%), transparent) 52%,
+    transparent 66%);
+  filter: blur(22px);
+}
+
+/* ---- Grain: inside the clock box (inset -22%), above the halo, below the clock SVG.
+   The closest-side mask reaches zero at the box edge (no seam) and is ~0 by the hour word. ----
+   Luminance noise centred on 50% grey, blended with overlay: it adds texture without
+   shifting the mean, so it never dims the hero. Measured: sd >= 2.5 (8-bit luma) in a flat
+   patch of the bare clock face in both themes (light .5, dark .15). */
+.grain {
+  position: absolute;
+  inset: -22%;
+  pointer-events: none;
+  opacity: var(--grain-alpha);
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0.9 0.9 0.9 0 -0.85 0.9 0.9 0.9 0 -0.85 0.9 0.9 0.9 0 -0.85 0 0 0 0 1'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 240px 240px;
+  border-radius: 50%;
+  -webkit-mask-image: radial-gradient(closest-side, black 45%, transparent 100%);
+  mask-image: radial-gradient(closest-side, black 45%, transparent 100%);
+}
+
+/* ---- Glass: the one translucent treatment; rail panels only ---- */
+.glass {
+  background-color: var(--glass);
+  -webkit-backdrop-filter: blur(28px) saturate(1.35);
+  backdrop-filter: blur(28px) saturate(1.35);
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    inset 0 1px 0 0 color-mix(in oklab, var(--ink) 6%, transparent),
+    var(--shadow-panel);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .glass { background-color: color-mix(in oklab, var(--glass) 100%, var(--paper) 92%); }
+}
+
+/* ---- Focus ring ---- */
+.focus-ring:focus-visible,
+:where(button, a, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--hour-ink);
+  outline-offset: 3px;
+}
+:where(button, a, input, select, [tabindex]):focus:not(:focus-visible) { outline: none; }
+
+/* ---- Hairline ---- */
+.hairline { box-shadow: var(--shadow-hair); }
+.rule { border-top: 1px solid var(--line); }
+
+/* ---- Hover wash (rows, rail buttons) ---- */
+.hover-wash { transition: background-color var(--duration-swift) var(--ease-settle); }
+.hover-wash:hover { background-color: var(--hour-wash); }
+
+/* ---- Lit underline: the app's segmented-control selection mark ---- */
+.lit-underline { position: relative; }
+.lit-underline::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--hour-fill);
+  box-shadow: 0 0 8px var(--hour-soft);
+}
+
+/* ---- Checkbox check-off ---- */
+@keyframes check-draw {
+  from { stroke-dashoffset: 24; }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes check-fill {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(0.88); }
+  100% { transform: scale(1); }
+}
+@keyframes lumen-rise {
+  0%   { opacity: 0; transform: translateY(4px); }
+  12%  { opacity: 1; transform: translateY(0); }
+  65%  { opacity: 1; transform: translateY(-8px); }
+  100% { opacity: 0; transform: translateY(-14px); }
+}
+.check-draw { animation: check-draw var(--duration-settle) var(--ease-settle) forwards; }
+.check-fill { animation: check-fill var(--duration-settle) var(--ease-lift); }
+.lumen-rise { animation: lumen-rise 900ms linear forwards; } /* linear: the keyframes carry the shape */
+
+/* ---- Panel slide (from the right, beside the rail) ---- */
+@keyframes panel-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes panel-out {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(24px); }
+}
+@keyframes sheet-in {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+.panel-in  { animation: panel-in  var(--duration-settle) var(--ease-settle) both; }
+.panel-out { animation: panel-out var(--duration-quick)  var(--ease-glide)  both; }
+.sheet-in  { animation: sheet-in  var(--duration-settle) var(--ease-settle) both; }
+
+/* ---- Load moment: the light switches on once ---- */
+@keyframes light-on {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes word-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.light-on { animation: light-on var(--duration-dawn) var(--ease-dawn) both; }
+.word-in  { animation: word-in var(--duration-slow) var(--ease-settle) 240ms both; }
+
+/* ---- Orbit dial breathing (lit dot) ---- */
+@keyframes orbit-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.12); }
+}
+.orbit-breathe { animation: orbit-breathe 4s var(--ease-glide) infinite; transform-origin: center; transform-box: fill-box; }
+
+/* ---- Reduced motion: no drift, no breathe, instant transitions ---- */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-a, .aurora-b, .aurora-c, .orbit-breathe { animation: none; }
+  .light-on, .word-in, .panel-in, .panel-out, .sheet-in, .check-fill, .lumen-rise { animation-duration: 1ms; }
+  .check-draw { animation: none; stroke-dashoffset: 0; }
+}
+[data-reduce-motion="true"] .aurora-a,
+[data-reduce-motion="true"] .aurora-b,
+[data-reduce-motion="true"] .aurora-c,
+[data-reduce-motion="true"] .orbit-breathe { animation: none; }
+[data-reduce-motion="true"] .light-on,
+[data-reduce-motion="true"] .word-in,
+[data-reduce-motion="true"] .panel-in,
+[data-reduce-motion="true"] .panel-out,
+[data-reduce-motion="true"] .sheet-in,
+[data-reduce-motion="true"] .check-fill,
+[data-reduce-motion="true"] .lumen-rise { animation-duration: 1ms; }
+[data-reduce-motion="true"] .check-draw { animation: none; stroke-dashoffset: 0; }

@@ -1,0 +1,268 @@
+/* Hourly — design tokens (Tailwind v4, CSS-first)
+   `@import "tailwindcss"` lives in index.css. This file is imported after it.
+   Runtime: JS sets --hour (the current hour's hex) and --hour-next on <html>, plus
+   --hour-lit only for the Graphite sky (the Daylight stop, so the lit hour keeps its colour),
+   --halo-x / --halo-y on the halo element. Everything hour-tinted derives from those
+   via color-mix. Token names are stable; new ones are added, never renamed. */
+
+@theme {
+  /* Fonts */
+  --font-serif: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --font-sans: "Instrument Sans", "Avenir Next", "Helvetica Neue", sans-serif;
+
+  /* Colors — mapped to runtime vars so [data-theme] swaps them */
+  --color-paper: var(--paper);
+  --color-mist: var(--mist);
+  --color-ink: var(--ink);
+  --color-slate: var(--slate);
+  --color-pewter: var(--pewter);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-glass: var(--glass);
+  --color-hour: var(--hour);
+  --color-hour-fill: var(--hour-fill);
+  --color-hour-soft: var(--hour-soft);
+  --color-hour-glow: var(--hour-glow);
+  --color-hour-bloom: var(--hour-bloom);
+  --color-hour-ink: var(--hour-ink);
+  --color-hour-tint: var(--hour-tint);
+  --color-hour-wash: var(--hour-wash);
+
+  /* Type scale (size / line-height) */
+  --text-hourword: 3.5rem;
+  --text-hourword--line-height: 1;
+  --text-hourword--letter-spacing: -0.015em;
+  --text-personality: 1.375rem;
+  --text-personality--line-height: 1.35;
+  --text-title: 1.625rem;
+  --text-title--line-height: 1.15;
+  --text-title--letter-spacing: -0.005em;
+  --text-group: 1.1875rem;
+  --text-group--line-height: 1.2;
+  --text-quest: 1.0625rem;
+  --text-quest--line-height: 1.4;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5;
+  --text-small: 0.8125rem;
+  --text-small--line-height: 1.4;
+  --text-small--letter-spacing: 0.004em;
+  --text-numeral: 0.9375rem;
+  --text-numeral--line-height: 1;
+
+  /* Spacing (4-based; Tailwind spacing multiplier stays 0.25rem) */
+  --spacing: 0.25rem;
+
+  /* Radii — one per kind of surface, not one for everything */
+  --radius-check: 6px;
+  --radius-control: 10px;
+  --radius-segment: 8px;
+  --radius-thumb: 14px;
+  --radius-dialog: 18px;
+  --radius-panel: 22px;
+  --radius-pill: 999px;
+
+  /* Shadows — tinted by the theme's base, layered; only the panel and dialog use them */
+  --shadow-panel: var(--shadow-panel);
+  --shadow-dialog: var(--shadow-dialog);
+  --shadow-hair: var(--shadow-hair);
+
+  /* Easings (named) */
+  --ease-settle: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-glide: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-lift: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --ease-dawn: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Durations */
+  --duration-swift: 120ms;
+  --duration-quick: 200ms;
+  --duration-settle: 320ms;
+  --duration-slow: 600ms;
+  --duration-dawn: 1200ms;
+}
+
+/* ---------- Light (default) ---------- */
+:root {
+  color-scheme: light;
+
+  --paper: #f1f4f9;
+  --mist: #dde4ee;
+  --ink: #1b2331;
+  --slate: #56637a;
+  --pewter: #4f5c74;
+  --surface: #f7f9fc;
+  --line: rgb(27 35 49 / 0.1);
+  --line-strong: rgb(27 35 49 / 0.18);
+  --glass: rgb(247 249 252 / 0.62);
+  --dialog-backdrop: rgb(27 35 49 / 0.32);
+
+  /* runtime hour hue; JS overwrites. Default is 10:00 Daylight. */
+  --hour: #5ea3dc;
+  --hour-next: #7fb8d8;
+
+  /* derived. --hour-fill is what is drawn as "lit" (wedge, second hand, checks, discs);
+     in light it is deepened toward ink so it reads against the pale page. */
+  --hour-fill: color-mix(in oklab, var(--hour-lit, var(--hour)) 62%, var(--ink)); /* fallback; see @supports below */
+  --hour-glow: color-mix(in oklab, var(--hour) 26%, white);   /* halo: a whiter spot on the page */
+  --hour-bloom: color-mix(in oklab, var(--hour) 50%, white); /* wedge glow: light, not a coloured shadow */
+  --hour-soft: color-mix(in oklab, var(--hour) 34%, transparent);
+  --hour-tint: color-mix(in oklab, color-mix(in oklab, var(--hour) 55%, var(--slate)) 12%, transparent);
+  --hour-ink: color-mix(in oklab, var(--hour) 40%, var(--ink));
+  --hour-wash: color-mix(in oklab, var(--hour) 5%, transparent);
+  --wash-stop: 40%;
+  /* M1: in light the paper stays cool at every hour. The page wash and all three aurora blobs
+     are fixed blue-grey light; the hour lives only in the light source (halo, bloom, wedge).
+     --hour-wash stays hour-tinted: it is the row hover, not the page. */
+  --page-wash: color-mix(in oklab, #9fb6d8 10%, transparent);
+  --aurora-a-tint: #9fb6d8;
+  --aurora-b-tint: #9fb6d8;
+  --aurora-c-tint: #a9bddd;
+  --orbit-dot: color-mix(in oklab, var(--slate) 40%, transparent);
+
+  /* light strengths */
+  --aurora-alpha: 0.16;
+  --halo-alpha: 0.7;
+  --glow-near: 0.9;
+  --glow-far: 0.6;
+  --wedge-edge: 0.45;
+  --edge-alpha: 0.35;
+  --grain-alpha: 0.5;
+  --ring-tint: 12%;
+
+  --shadow-hair: 0 0 0 1px rgb(27 35 49 / 0.08);
+  --shadow-panel:
+    0 0 0 1px rgb(27 35 49 / 0.06),
+    0 1px 2px rgb(27 35 49 / 0.05),
+    0 12px 32px -12px rgb(27 35 49 / 0.18),
+    0 32px 64px -24px rgb(27 35 49 / 0.16);
+  --shadow-dialog:
+    0 0 0 1px rgb(27 35 49 / 0.07),
+    0 2px 4px rgb(27 35 49 / 0.06),
+    0 24px 56px -16px rgb(27 35 49 / 0.26);
+}
+
+/* Light lit-fill (DESIGN.md §1, "lit-fill rule"):
+   - lightness capped at 0.56, so every stop is >= 3:1 against the haloed page;
+   - chroma floor 0.12, so pale stops (straw, sea glass) stay colour, not grey or sage;
+   - hue: identity below 80deg and above 150deg, flat 80deg across 80-115deg (yellows become
+     gold, never olive), and 115-150deg re-spread linearly to 80-150deg so the map stays
+     continuous. h' = h - clamp(0, h - 80, 35) + clamp(0, h - 115, 35).
+   Declared before the dark block so [data-theme="dark"] still wins by source order. */
+@supports (color: oklch(from red l c h)) {
+  :root {
+    --hour-fill: oklch(from var(--hour-lit, var(--hour)) min(l, 0.56) max(c, 0.12)
+      calc(h - clamp(0, h - 80, 35) + clamp(0, h - 115, 35)));
+  }
+}
+
+/* ---------- Dark ---------- */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --paper: #0e1320;
+  --mist: #161d2e;
+  --ink: #e8edf5;
+  --slate: #a3aec2;
+  --pewter: #929eb3;
+  --surface: #1a2234;
+  --line: rgb(232 237 245 / 0.09);
+  --line-strong: rgb(232 237 245 / 0.16);
+  --glass: rgb(22 29 46 / 0.6);
+  --dialog-backdrop: rgb(5 8 16 / 0.55);
+
+  --hour-fill: var(--hour-lit, var(--hour));
+  --hour-glow: color-mix(in oklab, var(--hour) 70%, white 6%);
+  --hour-bloom: var(--hour-glow);
+  --hour-soft: color-mix(in oklab, var(--hour) 40%, transparent);
+  --hour-tint: color-mix(in oklab, color-mix(in oklab, var(--hour) 55%, var(--slate)) 11%, transparent);
+  --hour-ink: color-mix(in oklab, var(--hour) 55%, var(--ink));
+  --hour-wash: color-mix(in oklab, var(--hour) 12%, transparent);
+  --wash-stop: 60%;
+  --page-wash: var(--hour-wash);
+  --aurora-a-tint: var(--hour);
+  --aurora-b-tint: var(--hour-next);
+  --aurora-c-tint: var(--hour);
+  --orbit-dot: color-mix(in oklab, var(--slate) 32%, transparent);
+
+  --aurora-alpha: 0.34;
+  --halo-alpha: 0.62;
+  --glow-near: 0.75;
+  --glow-far: 0.45;
+  --wedge-edge: 0;
+  --edge-alpha: 0.22;
+  --grain-alpha: 0.15;
+  --ring-tint: 11%;
+
+  --shadow-hair: 0 0 0 1px rgb(232 237 245 / 0.07);
+  --shadow-panel:
+    0 0 0 1px rgb(232 237 245 / 0.06),
+    0 1px 2px rgb(5 8 16 / 0.4),
+    0 16px 40px -12px rgb(5 8 16 / 0.55),
+    0 40px 80px -24px rgb(5 8 16 / 0.5);
+  --shadow-dialog:
+    0 0 0 1px rgb(232 237 245 / 0.08),
+    0 2px 4px rgb(5 8 16 / 0.4),
+    0 28px 64px -16px rgb(5 8 16 / 0.65);
+}
+
+/* Dark lit-fill: lightness floor 0.74 so night indigos hold >= 3.6:1 against their haloed ring.
+   Glow, halo and aurora stay on the raw --hour so the night stays deep. */
+@supports (color: oklch(from red l c h)) {
+  [data-theme="dark"] { --hour-fill: oklch(from var(--hour-lit, var(--hour)) max(l, 0.74) c h); }
+}
+
+/* Auto mode: follow the OS until JS resolves the day/night boundaries (same values as dark) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    color-scheme: dark;
+    --paper: #0e1320;
+    --mist: #161d2e;
+    --ink: #e8edf5;
+    --slate: #a3aec2;
+    --pewter: #929eb3;
+    --surface: #1a2234;
+    --line: rgb(232 237 245 / 0.09);
+    --line-strong: rgb(232 237 245 / 0.16);
+    --glass: rgb(22 29 46 / 0.6);
+    --dialog-backdrop: rgb(5 8 16 / 0.55);
+    --hour-fill: var(--hour-lit, var(--hour));
+    --hour-glow: color-mix(in oklab, var(--hour) 70%, white 6%);
+    --hour-bloom: var(--hour-glow);
+    --hour-soft: color-mix(in oklab, var(--hour) 40%, transparent);
+    --hour-tint: color-mix(in oklab, color-mix(in oklab, var(--hour) 55%, var(--slate)) 11%, transparent);
+    --hour-ink: color-mix(in oklab, var(--hour) 55%, var(--ink));
+    --hour-wash: color-mix(in oklab, var(--hour) 12%, transparent);
+    --wash-stop: 60%;
+    --page-wash: var(--hour-wash);
+    --aurora-a-tint: var(--hour);
+    --aurora-b-tint: var(--hour-next);
+    --aurora-c-tint: var(--hour);
+    --orbit-dot: color-mix(in oklab, var(--slate) 32%, transparent);
+    --aurora-alpha: 0.34;
+    --halo-alpha: 0.62;
+    --glow-near: 0.75;
+    --glow-far: 0.45;
+    --wedge-edge: 0;
+    --edge-alpha: 0.22;
+    --grain-alpha: 0.15;
+    --ring-tint: 11%;
+    --shadow-hair: 0 0 0 1px rgb(232 237 245 / 0.07);
+    --shadow-panel:
+      0 0 0 1px rgb(232 237 245 / 0.06),
+      0 1px 2px rgb(5 8 16 / 0.4),
+      0 16px 40px -12px rgb(5 8 16 / 0.55),
+      0 40px 80px -24px rgb(5 8 16 / 0.5);
+    --shadow-dialog:
+      0 0 0 1px rgb(232 237 245 / 0.08),
+      0 2px 4px rgb(5 8 16 / 0.4),
+      0 28px 64px -16px rgb(5 8 16 / 0.65);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  @supports (color: oklch(from red l c h)) {
+    :root:not([data-theme="light"]):not([data-theme="dark"]) {
+      --hour-fill: oklch(from var(--hour-lit, var(--hour)) max(l, 0.74) c h);
+    }
+  }
+}

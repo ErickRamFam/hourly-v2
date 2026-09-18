@@ -1,0 +1,204 @@
+/* Hourly — engineering-owned CSS. tokens.css and surfaces.css (design-owned) define every
+   colour, strength and recipe; this file only adds what they do not:
+   1. the installed font family name, registered --hour/--hour-next for the 1200ms handoff,
+      and one value DESIGN.md gives without a token (--lantern-tint, §6),
+   2. layout from DESIGN.md §7 (mirrors docs/mockup/mockup.css),
+   3. component rules a Tailwind utility cannot express (pseudo-elements, hover reveals,
+      SVG transforms and transitions, reduced-motion overrides). */
+
+/* ---- 1. Values ---- */
+/* @fontsource-variable/instrument-sans registers "Instrument Sans Variable", not the
+   "Instrument Sans" tokens.css names. Unlayered, so it wins over the @theme value. */
+:root { --font-sans: "Instrument Sans Variable", "Instrument Sans", "Avenir Next", "Helvetica Neue", sans-serif; }
+/* Lantern wedges: lap tints at 7% (dark 9%), DESIGN.md §6. */
+:root { --lantern-tint: 7%; }
+[data-theme="dark"] { --lantern-tint: 9%; }
+
+/* Top of the hour: every --hour-* derives from these two, so registering them makes the
+   halo, aurora, fill and wash recolor over --duration-dawn (§6). --hour-lit is left
+   unregistered on purpose: tokens.css relies on var(--hour-lit, var(--hour)) falling back. */
+@property --hour { syntax: "<color>"; inherits: true; initial-value: #5ea3dc; }
+@property --hour-next { syntax: "<color>"; inherits: true; initial-value: #7fb8d8; }
+/* Only after the first hue is painted (JS sets data-hue-ready), so a page load never sweeps
+   from the registered initial blue to the real hour. */
+html[data-hue-ready] {
+  transition:
+    --hour var(--duration-dawn) var(--ease-dawn),
+    --hour-next var(--duration-dawn) var(--ease-dawn);
+}
+
+/* ---- Base (layered, so Tailwind utilities on elements still win) ---- */
+@layer base {
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: var(--paper);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  button { cursor: pointer; }
+  button:disabled { cursor: default; }
+}
+.press:active { transform: scale(0.98); transition: transform var(--duration-swift) var(--ease-settle); }
+
+/* ---- 2. Layout (DESIGN.md §7) ---- */
+/* The halo (inset -30%) and grain (-22%) overhang the clock box; on phones that made the page
+   pan sideways (critique 02 B1). clip, unlike hidden, creates no scroll container, so fixed
+   children (aurora, rail, panel) and the desktop halo are unaffected. */
+#root { overflow-x: clip; }
+.shell { padding: 0 calc(64px + 40px) 48px 40px; max-width: calc(1120px + 64px + 80px); }
+.columns {
+  display: grid; grid-template-columns: 55fr 45fr; gap: 64px;
+  align-items: start; align-content: center;
+  min-height: calc(100dvh - 56px - 48px); padding: 24px 0;
+}
+.log { padding-top: 6px; }
+.clock-wrap { width: min(100%, max(380px, min(440px, 52vh))); }
+.words { margin-top: 28px; max-width: 36ch; }
+.rail { width: 64px; padding: 12px 0 16px; }
+.rail-btn { width: 40px; height: 40px; }
+.rail-btn + .rail-btn { margin-top: 8px; }
+.panel { top: 12px; bottom: 12px; right: 64px; width: 380px; border-radius: var(--radius-panel) 0 0 var(--radius-panel); padding: 24px 28px 28px; }
+/* ≥1600: equal columns gathered on the centre gutter; the hero hugs it (§7, critique 02 m1). */
+@media (min-width: 1600px) {
+  .shell { max-width: calc(1400px + 64px + 80px); }
+  .columns { grid-template-columns: 1fr 1fr; gap: 128px; }
+  .hero { justify-self: end; width: max(380px, min(440px, 52vh)); }
+  .clock-wrap { width: 100%; }
+}
+@media (min-height: 960px) and (min-width: 1600px) {
+  .hero { width: max(380px, min(480px, 52vh)); }
+}
+@media (max-width: 1180px) {
+  .columns { grid-template-columns: 1fr 1fr; gap: 40px; }
+}
+@media (max-width: 760px) {
+  .shell { padding: 0 calc(44px + 12px) 32px 12px; }
+  .columns { grid-template-columns: 1fr; gap: 36px; min-height: 0; padding-top: 24px; }
+  .clock-wrap { width: min(100%, 320px); margin: 0 auto; }
+  .words { margin: 20px auto 0; text-align: center; max-width: none; }
+  .hourword { font-size: 40px; }
+  .personality { font-size: 19px; }
+  .date { display: none; }
+  .rail { width: 44px; padding-top: 8px; }
+  .rail-btn { width: 36px; height: 36px; }
+  .qtitle { font-size: 16px; }
+  .panel { inset: 0; width: 100%; border-radius: 0; padding: 20px 16px 24px; z-index: 35; } /* full-screen sheet over the rail */
+  .add .chip { position: static; transform: none; }
+  .add .well { padding-right: 14px; }
+}
+
+/* ---- 3. Components ---- */
+/* Hero */
+.clock-wrap svg { position: relative; display: block; width: 100%; height: 100%; }
+.personality { text-wrap: balance; font-style: italic; }
+
+/* Clock. The lit colour derives from the transitioning --hour, so lit marks never get their
+   own colour transition (it would restart every frame and lag). The Sector handoff is an
+   opacity crossfade between per-section lit overlays; other dials fade the new mark in. */
+.clock-lit { transition: opacity var(--duration-dawn) var(--ease-dawn); }
+.orbit-swell { transform-box: fill-box; transform-origin: center; transition: transform var(--duration-dawn) var(--ease-dawn); }
+.clock-hand { transform-origin: 200px 200px; }
+[data-second-hand="tick"] .clock-hand-second { transition: transform 180ms cubic-bezier(0.4, 2, 0.5, 1); }
+.clock-numeral { font-family: var(--font-sans); font-variant-numeric: tabular-nums; }
+
+/* Quest rows (§8): the hover wash bleeds 2px / 6px past the text edge, but the rule is drawn
+   by ::before inside that bleed so it lines up with the header rule and the well (critique 02 n1). */
+.row { padding: 12px 6px 12px 2px; margin: 0 -6px 0 -2px; transition: background-color var(--duration-swift) var(--ease-settle); }
+.row::before { content: ""; position: absolute; top: 0; left: 2px; right: 6px; border-top: 1px solid var(--line); pointer-events: none; }
+.row:first-child::before { border-top-color: var(--line-strong); }
+/* "Remove" takes the meta's place on hover or keyboard focus, never reserving its own column. */
+.row .remove { position: absolute; right: 6px; top: 15px; opacity: 0; transition: opacity var(--duration-swift) var(--ease-settle); }
+.row .meta { padding-top: 4px; transition: opacity var(--duration-swift) var(--ease-settle); }
+/* Keyboard: Remove appears when it is itself focused (Tab from the checkbox), not on row focus. */
+.row .remove:focus-visible { opacity: 1; }
+.row:has(.remove:focus-visible) .meta { opacity: 0; }
+/* Hover only where a pointer can hover: on touch, :hover sticks to the last row tapped. */
+@media (hover: hover) {
+  .row:hover { background-color: var(--hour-wash); }
+  .row:hover .remove { opacity: 1; }
+  .row:hover .meta { opacity: 0; }
+}
+/* Row overrides by width and input, declared after the base .row rules so they win (critique 02 n2). */
+@media (max-width: 1180px) {
+  .row { flex-wrap: wrap; row-gap: 2px; }
+  .row .meta { flex-basis: 100%; padding-left: 36px; padding-top: 0; }
+  .row:hover .meta, .row:has(.remove:focus-visible) .meta { opacity: 1; }
+}
+/* The 64px reserve for "Remove" is only for hover: touch titles use the full row (critique 03). */
+@media (max-width: 1180px) and (hover: hover) {
+  .row { padding-right: 64px; }
+}
+@media (max-width: 760px) {
+  .row { min-height: 48px; }
+}
+/* Touch screens have no hover: tapping a title selects its row (data-selected, QuestLog), which
+   takes the wash and shows "Remove" in the meta's place. Unselected, Remove is invisible and
+   untappable but stays in the tab order. */
+@media (hover: none) {
+  .row[data-selected] { background-color: var(--hour-wash); }
+  .row .remove { pointer-events: none; }
+  .row[data-selected] .remove { opacity: 1; pointer-events: auto; }
+  .row[data-selected] .meta { opacity: 0; }
+}
+@media (max-width: 1180px) and (hover: none) {
+  .row[data-selected], .row:has(.remove:focus-visible) { padding-right: 64px; }
+}
+.check { margin-top: 1px; box-shadow: inset 0 0 0 1px var(--line-strong); transition: background-color var(--duration-settle) var(--ease-settle), box-shadow var(--duration-settle) var(--ease-settle); }
+.check svg path { stroke: transparent; stroke-dasharray: 24; }
+.check[aria-checked="true"] { background: var(--hour-fill); box-shadow: none; }
+.check[aria-checked="true"] svg path { stroke: var(--paper); }
+/* "+1" centred over the checkbox (critique 02 m3); keyframes and timing are design's (.lumen-rise). */
+.lumen-float {
+  position: absolute; left: 50%; top: -8px; translate: -50% 0; pointer-events: none;
+  font-size: 13px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; color: var(--hour-ink);
+}
+
+/* Add-quest well */
+.well { box-shadow: inset 0 0 0 1px var(--line-strong); transition: box-shadow var(--duration-swift) var(--ease-settle); padding-right: 132px; }
+.well:focus-within { box-shadow: inset 0 0 0 1px var(--hour-ink); }
+.well input { background: transparent; border: 0; outline: none; min-width: 0; }
+.well input::placeholder { color: var(--pewter); }
+.add .chip { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); }
+.chip { box-shadow: inset 0 0 0 1px var(--line); transition: background-color var(--duration-swift) var(--ease-settle); }
+.chip[aria-pressed="true"] { background: var(--hour-soft); box-shadow: none; color: var(--ink); }
+
+/* Rail */
+.rail { background: color-mix(in oklab, var(--paper) 70%, transparent); border-left: 1px solid var(--line); }
+.rail-btn { position: relative; color: var(--slate); }
+.rail-btn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.rail-btn.active { color: var(--ink); }
+.rail-btn.active::before {
+  content: ""; position: absolute; left: -6px; top: 18px; width: 4px; height: 4px; border-radius: 50%;
+  background: var(--hour-fill); box-shadow: 0 0 8px var(--hour-soft);
+}
+.lumen-dot { box-shadow: 0 0 8px var(--hour-soft); }
+
+/* Panel */
+.panel { scrollbar-width: none; }
+.panel::-webkit-scrollbar { display: none; }
+.scrim { background: color-mix(in oklab, var(--paper) 35%, transparent); }
+.item.locked .art, .item.locked .strip { opacity: 0.55; }
+.state.equipped::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--hour-fill); }
+.sky-item:first-child { border-top: 0; }
+
+/* Settings rows: first row has no rule */
+.srow:first-child { border-top: 0; }
+
+/* Confirm dialog: opens with light-on over --duration-quick (§8) */
+.dialog-in { animation: light-on var(--duration-quick) var(--ease-dawn) both; }
+
+/* Reduced motion (OS or setting): hour handoff is a cut, no tick bounce */
+@media (prefers-reduced-motion: reduce) {
+  html, .clock-lit, .orbit-swell, .clock-hand-second { transition: none !important; }
+  .dialog-in { animation-duration: 1ms; }
+}
+[data-reduce-motion="true"],
+[data-reduce-motion="true"] .clock-lit,
+[data-reduce-motion="true"] .orbit-swell,
+[data-reduce-motion="true"] .clock-hand-second { transition: none !important; }
+[data-reduce-motion="true"] .dialog-in { animation-duration: 1ms; }
+[data-reduce-motion="true"] .count-slot > span { transition: none; }
