@@ -146,42 +146,43 @@ html[data-hue-ready] {
 .row { padding: 12px 6px 12px 2px; margin: 0 -6px 0 -2px; transition: background-color var(--duration-swift) var(--ease-settle); }
 .row::before { content: ""; position: absolute; top: 0; left: 2px; right: 6px; border-top: 1px solid var(--line); pointer-events: none; }
 .row:first-child::before { border-top-color: var(--line-strong); }
-/* "Remove" takes the meta's place on hover or keyboard focus, never reserving its own column. */
-.row .remove { position: absolute; right: 6px; top: 15px; opacity: 0; transition: opacity var(--duration-swift) var(--ease-settle); }
-.row .meta { padding-top: 4px; transition: opacity var(--duration-swift) var(--ease-settle); }
-/* Keyboard: Remove appears when it is itself focused (Tab from the checkbox), not on row focus. */
-.row .remove:focus-visible { opacity: 1; }
-.row:has(.remove:focus-visible) .meta { opacity: 0; }
+/* "Edit" and "Remove" share one container at the row's top right. They appear on hover, on
+   keyboard focus of either (Tab from the checkbox), or on touch when the row is selected. The
+   row keeps a right-hand reserve for both (about 95px plus the 6px inset) so they never sit on
+   the title or "repeats daily". */
+.row .row-actions {
+  position: absolute; right: 6px; top: 15px; line-height: 1.4; opacity: 0;
+  transition: opacity var(--duration-swift) var(--ease-settle);
+}
+.row .row-actions:has(:focus-visible) { opacity: 1; }
+.row .meta { padding-top: 4px; }
+/* The edit field: the title's own type, an underline instead of a box. */
+.row .qedit {
+  min-width: 0; padding: 0; margin: 0; background: transparent; border: 0; border-radius: 0;
+  box-shadow: inset 0 -1px 0 var(--hour-ink); outline: none;
+}
 /* Hover only where a pointer can hover: on touch, :hover sticks to the last row tapped. */
 @media (hover: hover) {
+  .row { padding-right: 101px; }
   .row:hover { background-color: var(--hour-wash); }
-  .row:hover .remove { opacity: 1; }
-  .row:hover .meta { opacity: 0; }
+  .row:hover .row-actions { opacity: 1; }
 }
-/* Row overrides by width and input, declared after the base .row rules so they win (critique 02 n2). */
+/* Row overrides by width, declared after the base .row rules so they win (critique 02 n2). */
 @media (max-width: 1180px) {
   .row { flex-wrap: wrap; row-gap: 2px; }
   .row .meta { flex-basis: 100%; padding-left: 36px; padding-top: 0; }
-  .row:hover .meta, .row:has(.remove:focus-visible) .meta { opacity: 1; }
-}
-/* The 64px reserve for "Remove" is only for hover: touch titles use the full row (critique 03). */
-@media (max-width: 1180px) and (hover: hover) {
-  .row { padding-right: 64px; }
 }
 @media (max-width: 760px) {
   .row { min-height: 48px; }
 }
 /* Touch screens have no hover: tapping a title selects its row (data-selected, QuestLog), which
-   takes the wash and shows "Remove" in the meta's place. Unselected, Remove is invisible and
-   untappable but stays in the tab order. */
+   takes the wash and shows the actions. Unselected, they are invisible and untappable but stay
+   in the tab order. Touch titles use the full row until then (critique 03). */
 @media (hover: none) {
   .row[data-selected] { background-color: var(--hour-wash); }
-  .row .remove { pointer-events: none; }
-  .row[data-selected] .remove { opacity: 1; pointer-events: auto; }
-  .row[data-selected] .meta { opacity: 0; }
-}
-@media (max-width: 1180px) and (hover: none) {
-  .row[data-selected], .row:has(.remove:focus-visible) { padding-right: 64px; }
+  .row .row-actions { pointer-events: none; }
+  .row[data-selected] .row-actions { opacity: 1; pointer-events: auto; }
+  .row[data-selected], .row:has(.row-actions :focus-visible) { padding-right: 101px; }
 }
 .check { margin-top: 1px; box-shadow: inset 0 0 0 1px var(--line-strong); transition: background-color var(--duration-settle) var(--ease-settle), box-shadow var(--duration-settle) var(--ease-settle); }
 .check svg path { stroke: transparent; stroke-dasharray: 24; }

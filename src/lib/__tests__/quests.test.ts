@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  MAX_TITLE_LENGTH,
   addQuest,
   dayProgress,
   lifetimeEarned,
@@ -7,6 +8,7 @@ import {
   questsForDay,
   removeQuest,
   removedQuest,
+  renameQuest,
   restoreQuest,
   toggleQuest,
   type Completions,
@@ -172,5 +174,23 @@ describe('dayProgress', () => {
   })
   it('ignores completions for quests that no longer exist', () => {
     expect(dayProgress([q('a', true)], { [DAY]: ['a', 'ghost'] }, DAY)).toEqual({ done: 1, total: 1 })
+  })
+})
+
+describe('renameQuest', () => {
+  const quests: Quest[] = [
+    { id: 'a', title: 'Read', repeats: true, createdDay: '2026-09-17' },
+    { id: 'b', title: 'Walk', repeats: false, createdDay: '2026-09-18' },
+  ]
+  it('trims, caps the length and keeps everything else', () => {
+    const next = renameQuest(quests, 'a', '  Read a chapter  ')
+    expect(next).toEqual([{ id: 'a', title: 'Read a chapter', repeats: true, createdDay: '2026-09-17' }, quests[1]])
+    expect(next[1]).toBe(quests[1])
+    expect(renameQuest(quests, 'b', 'x'.repeat(MAX_TITLE_LENGTH + 20))[1].title).toHaveLength(MAX_TITLE_LENGTH)
+  })
+  it('returns the same array for an unknown id, an empty title or no change', () => {
+    expect(renameQuest(quests, 'ghost', 'New')).toBe(quests)
+    expect(renameQuest(quests, 'a', '   ')).toBe(quests)
+    expect(renameQuest(quests, 'a', ' Read ')).toBe(quests)
   })
 })

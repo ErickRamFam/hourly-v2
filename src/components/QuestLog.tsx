@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import {
   MAX_TITLE_LENGTH,
   dayProgress,
@@ -27,7 +27,7 @@ export function QuestLog({ today }: { today: string }) {
   const [justChecked, setJustChecked] = useState<string | null>(null)
   const [float, setFloat] = useState<{ id: string; key: number } | null>(null)
   const [toast, setToast] = useState<Toast | null>(null)
-  // Touch screens have no hover: tapping a title selects its row, which reveals "Remove".
+  // Touch screens have no hover: tapping a title selects its row, which reveals "Edit" and "Remove".
   const touch = useMediaQuery('(hover: none)')
   const [selected, setSelected] = useState<string | null>(null)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
@@ -39,6 +39,11 @@ export function QuestLog({ today }: { today: string }) {
   const checks = useRef(new Map<string, HTMLButtonElement>())
   /** Where focus goes once the next render lands: a quest's checkbox, or the add-quest input. */
   const focusAfter = useRef<{ quest: string } | 'input' | null>(null)
+  /** The one row being retitled, and its draft. */
+  const [editing, setEditing] = useState<{ id: string; draft: string } | null>(null)
+  const editRef = useRef<HTMLInputElement>(null)
+  /** Set by Enter and Escape, so the blur that follows them does nothing. */
+  const committed = useRef(false)
 
   useEffect(() => {
     const list = timers.current
@@ -94,6 +99,16 @@ export function QuestLog({ today }: { today: string }) {
   }
 
   const todays = questsForDay(quests, today)
+  // The edited quest left the log (midnight rollover, removed, undo window): drop the edit.
+  if (editing && !todays.some((q) => q.id === editing.id)) setEditing(null)
+
+  // Focus and select the field when an edit starts, not on every keystroke.
+  const editingId = editing?.id ?? null
+  useEffect(() => {
+    if (editingId === null) return
+    editRef.current?.focus()
+    editRef.current?.select()
+  }, [editingId])
   const progress = dayProgress(quests, completions, today)
   const cleared = progress.total > 0 && progress.done === progress.total
 
@@ -141,6 +156,36 @@ export function QuestLog({ today }: { today: string }) {
     setToast(null)
     dispatch({ type: 'restoreQuest', removed })
     focusAfter.current = { quest: removed.quest.id }
+  }
+
+  /** Saves a draft (an empty or unchanged one is a no-op in the reducer). */
+  const save = (id: string, draft: string) => dispatch({ type: 'renameQuest', id, title: draft })
+
+  const onEdit = (id: string, title: string) => {
+    // One row at a time: starting a second edit saves the first.
+    if (editing && !committed.current) save(editing.id, editing.draft)
+    committed.current = false
+    setSelected(null)
+    setEditing({ id, draft: title })
+  }
+
+  const onEditKey = (e: KeyboardEvent<HTMLInputElement>, id: string) => {
+    if (e.key !== 'Enter' && e.key !== 'Escape') return
+    e.preventDefault()
+    // Rail closes panels on a document Escape; here Escape only cancels the edit.
+    if (e.key === 'Escape') e.stopPropagation()
+    if (!editing || committed.current) return
+    committed.current = true
+    if (e.key === 'Enter') save(id, editing.draft)
+    focusAfter.current = { quest: id }
+    setEditing(null)
+  }
+
+  const onEditBlur = (id: string) => {
+    if (committed.current || !editing || editing.id !== id) return
+    committed.current = true
+    save(id, editing.draft)
+    setEditing(null)
   }
 
   const onSubmit = (e: FormEvent) => {
@@ -194,6 +239,7 @@ export function QuestLog({ today }: { today: string }) {
           {todays.map((q) => {
             const done = isDone(completions, today, q.id)
             const animate = justChecked === q.id && done
+            const isEditing = editing?.id === q.id
             return (
               <li
                 key={q.id}
@@ -201,6 +247,7 @@ export function QuestLog({ today }: { today: string }) {
                 data-done={done || undefined}
                 data-repeats={q.repeats || undefined}
                 data-selected={(touch && selected === q.id) || undefined}
+                data-editing={isEditing || undefined}
               >
                 <span className="check-wrap relative flex-none">
                   <button
@@ -232,23 +279,51 @@ export function QuestLog({ today }: { today: string }) {
                     </span>
                   )}
                 </span>
-                <span
-                  className={`qtitle flex-1 text-quest font-[450] ${done ? 'text-slate' : 'text-ink'}`}
-                  onClick={touch ? () => setSelected((s) => (s === q.id ? null : q.id)) : undefined}
-                >
-                  {q.title}
-                </span>
+                {isEditing ? (
+                  <input
+                    ref={editRef}
+                    className="qtitle qedit flex-1 text-quest font-[450] text-ink"
+                    type="text"
+                    value={editing.draft}
+                    maxLength={MAX_TITLE_LENGTH}
+                    aria-label="Edit quest title"
+                    autoComplete="off"
+                    enterKeyHint="done"
+                    onChange={(e) => setEditing({ id: q.id, draft: e.target.value })}
+                    onKeyDown={(e) => onEditKey(e, q.id)}
+                    onBlur={() => onEditBlur(q.id)}
+                  />
+                ) : (
+                  <span
+                    className={`qtitle flex-1 text-quest font-[450] ${done ? 'text-slate' : 'text-ink'}`}
+                    onClick={touch ? () => setSelected((s) => (s === q.id ? null : q.id)) : undefined}
+                  >
+                    {q.title}
+                  </span>
+                )}
                 {q.repeats && (
                   <span className="meta text-small font-medium text-pewter">repeats daily</span>
                 )}
-                <button
-                  type="button"
-                  className="remove text-small font-medium text-pewter"
-                  aria-label={`Remove ${q.title}`}
-                  onClick={() => onRemove(q.id)}
-                >
-                  Remove
-                </button>
+                {!isEditing && (
+                  <span className="row-actions flex gap-3.5">
+                    <button
+                      type="button"
+                      className="edit text-small font-medium text-pewter"
+                      aria-label={`Edit ${q.title}`}
+                      onClick={() => onEdit(q.id, q.title)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="remove text-small font-medium text-pewter"
+                      aria-label={`Remove ${q.title}`}
+                      onClick={() => onRemove(q.id)}
+                    >
+                      Remove
+                    </button>
+                  </span>
+                )}
               </li>
             )
           })}

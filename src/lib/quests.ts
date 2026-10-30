@@ -54,6 +54,21 @@ export function addQuest(
 }
 
 /** Removes a quest and prunes it from every day's completions. The ledger is untouched. */
+/**
+ * Retitles quest `id` (trimmed, capped at MAX_TITLE_LENGTH). The same array comes back for an
+ * unknown id, an empty title or an unchanged one, so callers can treat it as a no-op. Nothing
+ * else on the quest changes: not `repeats`, not `createdDay`, and completions and the ledger
+ * key on the id, so they are untouched.
+ */
+export function renameQuest(quests: readonly Quest[], id: string, title: string): Quest[] {
+  const trimmed = title.trim().slice(0, MAX_TITLE_LENGTH)
+  const index = quests.findIndex((q) => q.id === id)
+  if (!trimmed || index === -1 || quests[index].title === trimmed) return quests as Quest[]
+  const next = quests.slice()
+  next[index] = { ...quests[index], title: trimmed }
+  return next
+}
+
 export function removeQuest(
   quests: readonly Quest[],
   completions: Completions,

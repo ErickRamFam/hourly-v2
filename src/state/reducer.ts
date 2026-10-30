@@ -7,6 +7,7 @@ import type { AppState, ItemKind, Panel, Settings } from './types'
 
 export type Action =
   | { type: 'addQuest'; title: string; repeats: boolean; now: number; id?: string }
+  | { type: 'renameQuest'; id: string; title: string }
   | { type: 'removeQuest'; id: string }
   | { type: 'restoreQuest'; removed: Q.RemovedQuest }
   | { type: 'toggleQuest'; id: string; now: number }
@@ -33,6 +34,10 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'addQuest': {
       const day = dayKey(new Date(action.now))
       const quests = Q.addQuest(state.quests, action.title, action.repeats, day, action.id)
+      return quests === state.quests ? state : { ...state, quests }
+    }
+    case 'renameQuest': {
+      const quests = Q.renameQuest(state.quests, action.id, action.title)
       return quests === state.quests ? state : { ...state, quests }
     }
     case 'removeQuest': {

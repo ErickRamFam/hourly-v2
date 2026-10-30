@@ -367,8 +367,18 @@ wash bleeds past the text edge), `border-top: 1px line`; first row `line-strong`
 Checkbox 22px, radius 6, margin-top 1, `inset 0 0 0 1px line-strong`; checked: fill
 `--hour-fill`, no border, check path `M2.5 7.5l3 3 6-7` 1.8 stroke `paper` in a 14px box.
 Checked title `slate`, no strikethrough. Meta "repeats daily" small `pewter`, padding-top 4.
-**Hover:** row background `--hour-wash`, "Remove" (small `pewter`) appears right. **Focus:**
-2px `--hour-ink` ring, offset 3, on the checkbox.
+**Hover:** row background `--hour-wash`; "Edit" and "Remove" (small `pewter`, 14px apart, in
+that order) appear at the row's top right. They also appear when either has keyboard focus,
+and on touch when the row is selected by tapping its title. The row reserves 101px on the
+right for them (95 + the 6px inset) on hover devices, and on touch while selected, so they
+never sit on the title or "repeats daily". **Focus:** 2px `--hour-ink` ring, offset 3, on the
+checkbox.
+
+**Edit.** "Edit" swaps the title for a text field in the title's own type (17/450, 16 at
+≤760), an `--hour-ink` underline and no box, all text selected, at most 120 characters. Enter
+or blur saves; Escape cancels; an empty edit keeps the old title. Done state and "repeats
+daily" do not change, the actions hide while editing, and the checkbox still works. Enter
+and Escape return focus to the row's checkbox. One row edits at a time.
 
 Check-off: `check-fill` (scale 1→.88→1, 320ms `--ease-lift`) while the fill transitions to
 `--hour-fill`; `check-draw` (`stroke-dasharray:24`, offset 24→0, 320ms `--ease-settle`);

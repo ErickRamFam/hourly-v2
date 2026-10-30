@@ -67,6 +67,25 @@ describe('quests through the reducer', () => {
   })
 })
 
+describe('renameQuest', () => {
+  it('retitles without touching completions, ledger, repeats or createdDay', () => {
+    const s = run([
+      { type: 'addQuest', title: 'Read', repeats: true, now: NOON, id: 'r' },
+      { type: 'toggleQuest', id: 'r', now: NOON },
+    ])
+    const after = reducer(s, { type: 'renameQuest', id: 'r', title: '  Read a chapter ' })
+    expect(after.quests).toEqual([{ id: 'r', title: 'Read a chapter', repeats: true, createdDay: '2026-09-17' }])
+    expect(after.completions).toBe(s.completions)
+    expect(after.ledger).toBe(s.ledger)
+  })
+  it('returns the same state on no-ops', () => {
+    const s = run([{ type: 'addQuest', title: 'Read', repeats: false, now: NOON, id: 'r' }])
+    expect(reducer(s, { type: 'renameQuest', id: 'r', title: '' })).toBe(s)
+    expect(reducer(s, { type: 'renameQuest', id: 'r', title: 'Read' })).toBe(s)
+    expect(reducer(s, { type: 'renameQuest', id: 'ghost', title: 'X' })).toBe(s)
+  })
+})
+
 describe('unlock', () => {
   it('fails silently when unaffordable', () => {
     const s = earn(initialState(), 1) // 3 lumens
