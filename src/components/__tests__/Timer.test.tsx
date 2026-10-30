@@ -1,5 +1,6 @@
 import { StrictMode, useEffect } from 'react'
 import { act, fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StorageLike } from '../../lib/storage'
 import { TIMER_KEY, saveTimer, startTimer } from '../../lib/timer'
@@ -174,6 +175,121 @@ describe('timer label and field', () => {
     expect(storage.data.has(TIMER_KEY)).toBe(false)
     advance(700_000)
     expect(status()).toHaveTextContent('')
+  })
+})
+
+describe('digits-only field', () => {
+  // userEvent needs real timers; nothing here waits on the countdown.
+  beforeEach(() => {
+    vi.useRealTimers()
+  })
+  const user = () => userEvent.setup()
+  async function openEmpty(u: ReturnType<typeof userEvent.setup>) {
+    await u.click(label())
+    await u.clear(field())
+  }
+
+  it('is a numeric text field, not type=number', async () => {
+    const u = user()
+    setup()
+    await u.click(label())
+    expect(field()).toHaveAttribute('type', 'text')
+    expect(field()).toHaveAttribute('inputmode', 'numeric')
+    expect(field()).toHaveAttribute('autocomplete', 'off')
+  })
+
+  it.each([
+    ['abc', ''],
+    ['5a3', '53'],
+    ['1e2', '12'],
+    ['-', ''],
+    ['.', ''],
+    ['!@#5', '5'],
+  ])('typing %j leaves %j', async (typed, shown) => {
+    const u = user()
+    setup()
+    await openEmpty(u)
+    await u.type(field(), typed)
+    expect(field()).toHaveValue(shown)
+  })
+
+  it('adds the colon at three and four digits and keeps the caret at the end', async () => {
+    const u = user()
+    setup()
+    await openEmpty(u)
+    const seen: string[] = []
+    for (const d of '1500') {
+      await u.keyboard(d)
+      seen.push(field().value)
+      expect(field().selectionStart).toBe(field().value.length)
+    }
+    expect(seen).toEqual(['1', '15', '1:50', '15:00'])
+  })
+
+  it('ignores a fifth digit', async () => {
+    const u = user()
+    setup()
+    await openEmpty(u)
+    await u.keyboard('15009')
+    expect(field()).toHaveValue('15:00')
+  })
+
+  it('backspace removes the last digit and the colon reflows', async () => {
+    const u = user()
+    setup()
+    await openEmpty(u)
+    await u.keyboard('530')
+    expect(field()).toHaveValue('5:30')
+    await u.keyboard('{Backspace}')
+    expect(field()).toHaveValue('53')
+    await u.keyboard('{Backspace}{Backspace}')
+    expect(field()).toHaveValue('')
+  })
+
+  it('pasted text keeps its first four digits', async () => {
+    const u = user()
+    setup()
+    await openEmpty(u)
+    await u.paste('12abc34567')
+    expect(field()).toHaveValue('12:34')
+  })
+
+  it('IME or mobile-keyboard text is sanitized too', () => {
+    setup()
+    fireEvent.click(label())
+    fireEvent.change(field(), { target: { value: '４5x3' } })
+    expect(field()).toHaveValue('53')
+  })
+
+  it('starts from typed digits: 530 is 5:30', async () => {
+    const u = user()
+    setup()
+    await openEmpty(u)
+    await u.keyboard('530{Enter}')
+    expect(label()).toHaveTextContent('05:30')
+  })
+
+  it('out-of-range digits stay open as invalid', async () => {
+    const u = user()
+    setup()
+    await openEmpty(u)
+    await u.keyboard('0075{Enter}')
+    expect(field()).toHaveAttribute('aria-invalid', 'true')
+    await u.clear(field())
+    await u.keyboard('6001{Enter}')
+    expect(field()).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('prefills a paused 14:32 as 14:32 and 0000 cancels it', async () => {
+    const u = user()
+    setup()
+    startWith('1432')
+    fireEvent.click(label())
+    expect(field()).toHaveValue('14:32')
+    await u.clear(field())
+    await u.keyboard('0000{Enter}')
+    expect(api.phase).toBe('idle')
+    expect(liveBeeps()).toHaveLength(0)
   })
 })
 

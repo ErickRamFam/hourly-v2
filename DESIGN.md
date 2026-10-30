@@ -347,12 +347,18 @@ own storage key. The clock never changes because of the timer.
   hero gets 36px of top room at ≤760 and on desktops up to 900 tall so it never meets the
   header.
 - **Field:** pressing the label opens an inline field with the time selected; an `--hour-ink`
-  underline only while typing, no box. Accepts `MM:SS` (SS 00 to 59) or a bare number of
-  minutes, trimmed, 00:01 to 60:00. Invalid input stays open with `aria-invalid` in
-  `--danger` (light `#B3261E`, dark `#FF8A80`). Idle: `0` or `00:00` is an error and
-  clicking away discards. Enter starts. Pressing a running label pauses it and opens the
-  field; Enter with a new time resumes from that time; clicking away or Escape leaves it
-  paused; `0` on a paused timer cancels it (idle, no sound).
+  underline only while typing, no box. Digits only (`inputmode="numeric"`, a text field, not
+  `type="number"`): letters and symbols never appear, pasted and IME text keep only 0-9, and
+  it holds at most four digits (a fifth is ignored). The colon is added for you at three or
+  four digits, with the caret at the end: `5` reads 5, `53` reads 53, `530` reads 5:30, `1500`
+  reads 15:00; Backspace takes off the last digit and the colon reflows. One or two digits are
+  minutes (`45` is 45:00); three or four are MMSS (`530` is 5:30, `6000` is 60:00). Seconds
+  00 to 59, range 00:01 to 60:00. A paused timer opens prefilled in the same form (14:32 is
+  1432). Invalid input stays open with `aria-invalid` in `--danger` (light `#B3261E`, dark
+  `#FF8A80`). Idle: all zeros is an error and clicking away discards. Enter starts. Pressing
+  a running label pauses it and opens the field; Enter with a new time resumes from that time;
+  clicking away or Escape leaves it paused; all zeros (`0`, `00`, `0000`) on a paused timer
+  cancels it (idle, no sound).
 - **Bar:** a separate SVG over the clock (`.timer-bar`, `inset: 0`, `overflow: visible`, no
   pointer events), annulus r 198 to 208 in the 400 box, just outside the ring (r 186 to 189.5).
   It starts at 12 and covers `remaining / 60:00` of the circle (60:00 is the full ring),
