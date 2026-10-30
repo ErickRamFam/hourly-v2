@@ -1,12 +1,13 @@
 import { getDial, isDialId } from '../lib/dials'
 import * as Q from '../lib/quests'
 import { SKIES, getSky } from '../lib/skies'
-import { initialState } from '../lib/storage'
+import { MAX_TIMER_SEC, MIN_TIMER_SEC, initialState } from '../lib/storage'
 import { dayKey } from '../lib/time'
 import type { AppState, ItemKind, Panel, Settings } from './types'
 
 export type Action =
   | { type: 'addQuest'; title: string; repeats: boolean; now: number; id?: string }
+  | { type: 'renameQuest'; id: string; title: string }
   | { type: 'removeQuest'; id: string }
   | { type: 'restoreQuest'; removed: Q.RemovedQuest }
   | { type: 'toggleQuest'; id: string; now: number }
@@ -33,6 +34,10 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'addQuest': {
       const day = dayKey(new Date(action.now))
       const quests = Q.addQuest(state.quests, action.title, action.repeats, day, action.id)
+      return quests === state.quests ? state : { ...state, quests }
+    }
+    case 'renameQuest': {
+      const quests = Q.renameQuest(state.quests, action.id, action.title)
       return quests === state.quests ? state : { ...state, quests }
     }
     case 'removeQuest': {
@@ -68,6 +73,10 @@ export function reducer(state: AppState, action: Action): AppState {
       }
       if (p.nightStart !== undefined && Number.isInteger(p.nightStart) && p.nightStart >= 0 && p.nightStart <= 23) {
         next.nightStart = p.nightStart
+      }
+      const t = p.defaultTimerSec
+      if (t !== undefined && Number.isInteger(t) && t % 60 === 0 && t >= MIN_TIMER_SEC && t <= MAX_TIMER_SEC) {
+        next.defaultTimerSec = t
       }
       return { ...state, settings: next }
     }

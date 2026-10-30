@@ -17,8 +17,13 @@ export function defaultSettings(): Settings {
     secondHand: 'sweep',
     use24h: false,
     reduceMotion: 'system',
+    defaultTimerSec: DEFAULT_TIMER_SEC,
   }
 }
+
+export const DEFAULT_TIMER_SEC = 1800
+export const MIN_TIMER_SEC = 60
+export const MAX_TIMER_SEC = 3600
 
 export function initialState(): AppState {
   return {
@@ -69,6 +74,8 @@ function sanitizeSettings(value: unknown): Settings {
     secondHand: oneOf(value.secondHand, SECOND_HAND_MODES, base.secondHand),
     use24h: typeof value.use24h === 'boolean' ? value.use24h : base.use24h,
     reduceMotion: oneOf(value.reduceMotion, REDUCE_MOTION_MODES, base.reduceMotion),
+    // Old saves have none and get 30:00; anything else is clamped to the range in whole minutes.
+    defaultTimerSec: Math.round(int(value.defaultTimerSec, base.defaultTimerSec, MIN_TIMER_SEC, MAX_TIMER_SEC) / 60) * 60,
   }
 }
 

@@ -7,7 +7,8 @@ import type { Settings } from './types'
 /**
  * Mirrors runtime state onto <html> for the design system (DESIGN.md §1, §5):
  * --hour (the ramp stop), --hour-next, --hour-lit (Graphite only: the Daylight stop, so
- * --hour-fill stays coloured), --halo-x/--halo-y (light comes from the lit section),
+ * --hour-fill stays coloured), --hour-lit-next (the same for the next hour, for the timer
+ * bar's --hour-fill-next), --halo-x/--halo-y (light comes from the lit section),
  * data-theme, data-sky, data-hour, and data-reduce-motion="true".
  */
 export function useHourHue(now: Date, sky: Sky, settings: Settings, reduceMotion: boolean): void {
@@ -16,6 +17,7 @@ export function useHourHue(now: Date, sky: Sky, settings: Settings, reduceMotion
   const hue = hourHue(sky, hour)
   const next = hourHue(sky, hour + 1)
   const lit = litHue(sky, hour)
+  const litNext = litHue(sky, hour + 1)
 
   // Layout effect: the first values land before first paint, so nothing transitions at load.
   useLayoutEffect(() => {
@@ -26,6 +28,8 @@ export function useHourHue(now: Date, sky: Sky, settings: Settings, reduceMotion
     // --hour-lit only for skies that borrow their lit colour (Graphite); tokens.css falls back to --hour.
     if (lit === hue) root.style.removeProperty('--hour-lit')
     else root.style.setProperty('--hour-lit', lit)
+    if (litNext === next) root.style.removeProperty('--hour-lit-next')
+    else root.style.setProperty('--hour-lit-next', litNext)
     root.style.setProperty('--halo-x', `${halo.x}%`)
     root.style.setProperty('--halo-y', `${halo.y}%`)
     root.dataset.theme = theme
@@ -40,5 +44,5 @@ export function useHourHue(now: Date, sky: Sky, settings: Settings, reduceMotion
       })
       return () => cancelAnimationFrame(frame)
     }
-  }, [hue, next, lit, theme, sky.id, hour, reduceMotion])
+  }, [hue, next, lit, litNext, theme, sky.id, hour, reduceMotion])
 }

@@ -62,8 +62,27 @@ describe('quests through the reducer', () => {
     expect(reducer(s, { type: 'addQuest', title: '   ', repeats: false, now: NOON })).toBe(s)
     expect(reducer(s, { type: 'toggleQuest', id: 'ghost', now: NOON })).toBe(s)
     expect(reducer(s, { type: 'removeQuest', id: 'ghost' })).toBe(s)
-    expect(reducer(s, { type: 'equip', kind: 'dial', id: 'sector' })).toBe(s)
+    expect(reducer(s, { type: 'equip', kind: 'dial', id: 'lantern' })).toBe(s)
     expect(reducer(s, { type: 'setPanel', panel: 'none' })).toBe(s)
+  })
+})
+
+describe('renameQuest', () => {
+  it('retitles without touching completions, ledger, repeats or createdDay', () => {
+    const s = run([
+      { type: 'addQuest', title: 'Read', repeats: true, now: NOON, id: 'r' },
+      { type: 'toggleQuest', id: 'r', now: NOON },
+    ])
+    const after = reducer(s, { type: 'renameQuest', id: 'r', title: '  Read a chapter ' })
+    expect(after.quests).toEqual([{ id: 'r', title: 'Read a chapter', repeats: true, createdDay: '2026-09-17' }])
+    expect(after.completions).toBe(s.completions)
+    expect(after.ledger).toBe(s.ledger)
+  })
+  it('returns the same state on no-ops', () => {
+    const s = run([{ type: 'addQuest', title: 'Read', repeats: false, now: NOON, id: 'r' }])
+    expect(reducer(s, { type: 'renameQuest', id: 'r', title: '' })).toBe(s)
+    expect(reducer(s, { type: 'renameQuest', id: 'r', title: 'Read' })).toBe(s)
+    expect(reducer(s, { type: 'renameQuest', id: 'ghost', title: 'X' })).toBe(s)
   })
 })
 
@@ -72,16 +91,16 @@ describe('unlock', () => {
     const s = earn(initialState(), 1) // 3 lumens
     const after = reducer(s, { type: 'unlock', kind: 'dial', id: 'hairline', now: NOON }) // costs 6
     expect(after).toBe(s)
-    expect(after.owned.dials).toEqual(['sector'])
+    expect(after.owned.dials).toEqual(['lantern'])
   })
   it('spends lumens and records an unlock entry when affordable', () => {
     const s = earn(initialState(), 2) // 6 lumens
     const after = reducer(s, { type: 'unlock', kind: 'dial', id: 'hairline', now: NOON })
-    expect(after.owned.dials).toEqual(['sector', 'hairline'])
+    expect(after.owned.dials).toEqual(['lantern', 'hairline'])
     expect(selectLumens(after)).toBe(0)
     expect(selectLifetimeEarned(after)).toBe(6)
     expect(after.ledger.at(-1)).toMatchObject({ delta: -6, reason: 'unlock', ref: 'dial:hairline' })
-    expect(after.equipped.dial).toBe('sector')
+    expect(after.equipped.dial).toBe('lantern')
   })
   it('ignores unknown items and items already owned', () => {
     const s = earn(initialState(), 4) // 12 lumens
@@ -99,7 +118,7 @@ describe('equip', () => {
     expect(reducer(s, { type: 'equip', kind: 'sky', id: 'tide' })).toBe(s)
     const owned = reducer(earn(s, 3), { type: 'unlock', kind: 'sky', id: 'tide', now: NOON })
     const equipped = reducer(owned, { type: 'equip', kind: 'sky', id: 'tide' })
-    expect(equipped.equipped).toEqual({ dial: 'sector', sky: 'tide' })
+    expect(equipped.equipped).toEqual({ dial: 'lantern', sky: 'tide' })
   })
 })
 
@@ -107,6 +126,18 @@ describe('settings and ui', () => {
   it('applies valid patches and drops out-of-range hours', () => {
     const s = run([{ type: 'updateSettings', patch: { themeOverride: 'dark', dayStart: 25, nightStart: 22, use24h: true } }])
     expect(s.settings).toMatchObject({ themeOverride: 'dark', dayStart: 6, nightStart: 22, use24h: true })
+  })
+  it('accepts a default timer only in whole minutes from 1:00 to 60:00', () => {
+    const set = (defaultTimerSec: number) => run([{ type: 'updateSettings', patch: { defaultTimerSec } }]).settings.defaultTimerSec
+    expect(initialState().settings.defaultTimerSec).toBe(1800)
+    expect(set(60)).toBe(60)
+    expect(set(3600)).toBe(3600)
+    expect(set(600)).toBe(600)
+    expect(set(0)).toBe(1800)
+    expect(set(30)).toBe(1800)
+    expect(set(3660)).toBe(1800)
+    expect(set(90)).toBe(1800)
+    expect(set(120.5)).toBe(1800)
   })
   it('opens and closes panels', () => {
     const s = run([{ type: 'setPanel', panel: 'collection' }])

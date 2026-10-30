@@ -3,7 +3,7 @@
  * Every number the design director may tune lives here.
  */
 
-/** Sector ring (default dial). gapDeg is per side (1.5° total between sections). */
+/** Sector ring (also the geometry the other dials share). gapDeg is per side (1.5° total between sections). */
 export const RING = {
   rOuter: 186,
   rInner: 158,
@@ -45,7 +45,7 @@ export const LANTERN = { rOuter: 186 } as const
 
 export const ORBIT = { radius: 172, dot: 5.5, litDot: 9, ringWidth: 1 } as const
 
-/** Gaussian blur radii for the two bloom copies under the lit mark (opacities are tokens). */
+/** Gaussian blur radii for the two bloom copies under the current mark (opacities are tokens). */
 export const GLOW = { near: 6, far: 16 } as const
 
 /** Live preview of the equipped dial at the top of Collection → Dials (§8). */
@@ -53,7 +53,7 @@ export const PREVIEW = { size: 168 } as const
 
 /**
  * 64px Collection art (§8): heavier strokes than the clock so each dial survives the scale.
- * Lit at hour 10; near bloom copy only.
+ * Filled to hour 10 (0 to 9 passed, 10 current); near bloom copy under the current mark only.
  */
 export const ART = {
   litHour: 10,

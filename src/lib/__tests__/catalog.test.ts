@@ -38,9 +38,12 @@ describe('skies', () => {
 })
 
 describe('dials', () => {
-  it('has five dials, sector free and default', () => {
-    expect(DIALS.map((d) => d.id)).toEqual(['sector', 'hairline', 'rays', 'lantern', 'orbit'])
+  it('has five dials in price order, lantern free and default', () => {
+    expect(DIALS.map((d) => d.id)).toEqual(['lantern', 'hairline', 'rays', 'sector', 'orbit'])
+    expect(DEFAULT_DIAL_ID).toBe('lantern')
     expect(getDial(DEFAULT_DIAL_ID).price).toBe(0)
+    expect(getDial('bogus').id).toBe(DEFAULT_DIAL_ID)
+    expect(DIALS.map((d) => d.price)).toEqual([0, 6, 8, 10, 12])
     expect(isDialId('orbit')).toBe(true)
     expect(isDialId('bogus')).toBe(false)
   })

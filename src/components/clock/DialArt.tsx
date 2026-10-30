@@ -2,57 +2,68 @@ import { useId } from 'react'
 import type { DialId } from '../../lib/dials'
 import { lapStops, type Sky } from '../../lib/skies'
 import { ART, GLOW } from './dialGeometry'
+import { currentFill, markFill, markState } from './fill'
 import { CENTER, VIEWBOX, arcPath, polar, sectionAngles, strokeArcPath } from './geometry'
 import { lanternTint, ringTint } from './tint'
 
 const C = CENTER
 const SECTIONS = Array.from({ length: 12 }, (_, i) => i)
+/** The art's current hour is halfway through, so its blend sits between the two ends. */
+const ART_PROGRESS = 0.5
 
 /**
  * Collection art (DESIGN.md §8): the dial drawn straight on the glass at 64px, no tile,
- * lit at hour 10 with the near bloom copy only. Heavier strokes than the clock (ART).
+ * filled to hour 10: hours 0 to 9 passed, hour 10 current with its near bloom copy only.
+ * Heavier strokes than the clock (ART).
  */
 export function DialArt({ dial, sky }: { dial: DialId; sky: Sky }) {
   const id = useId()
   const near = `${id}-near`
   const grad = `${id}-lantern`
+  const gradNow = `${id}-lantern-now`
   const stops = lapStops(sky, ART.litHour)
   const lit = ART.litHour % 12
+  const current = currentFill(ART_PROGRESS)
+  const state = (i: number) => markState(i, lit)
+  const fill = (i: number) => markFill(state(i), current)
   const bloom = { filter: `url(#${near})`, style: { opacity: 'var(--glow-near)' } }
 
   let body: React.ReactNode
   switch (dial) {
     case 'sector': {
       const g = ART.sector
-      const litPath = (() => {
-        const a = sectionAngles(lit, g.gapDeg)
+      const wedge = (i: number) => {
+        const a = sectionAngles(i, g.gapDeg)
         return arcPath(C, C, g.rOuter, g.rInner, a.start, a.end)
-      })()
+      }
       body = (
         <>
-          <path d={litPath} fill="var(--hour-bloom)" {...bloom} />
-          {SECTIONS.map((i) => {
-            const a = sectionAngles(i, g.gapDeg)
-            return <path key={i} d={arcPath(C, C, g.rOuter, g.rInner, a.start, a.end)} style={{ fill: i === lit ? 'var(--hour-fill)' : ringTint(stops[i]) }} />
-          })}
+          <path d={wedge(lit)} fill="var(--hour-bloom)" {...bloom} />
+          {SECTIONS.map((i) => (
+            <path key={i} d={wedge(i)} style={{ fill: state(i) === 'future' ? ringTint(stops[i]) : fill(i) }} />
+          ))}
         </>
       )
       break
     }
     case 'hairline': {
       const g = ART.hairline
-      const a = sectionAngles(lit)
-      const arc = strokeArcPath(C, C, g.ring, a.start + g.litInsetDeg, a.end - g.litInsetDeg)
+      const arc = (i: number) => {
+        const a = sectionAngles(i)
+        return strokeArcPath(C, C, g.ring, a.start + g.litInsetDeg, a.end - g.litInsetDeg)
+      }
       body = (
         <>
-          <path d={arc} fill="none" stroke="var(--hour-bloom)" strokeWidth={g.glowWidth} strokeLinecap="round" {...bloom} />
+          <path d={arc(lit)} fill="none" stroke="var(--hour-bloom)" strokeWidth={g.glowWidth} strokeLinecap="round" {...bloom} />
           <circle cx={C} cy={C} r={g.ring} fill="none" stroke="var(--line-strong)" strokeWidth={g.ringWidth} />
           {SECTIONS.map((i) => {
             const p = polar(C, C, g.tick.outer, i * 30)
             const q = polar(C, C, g.tick.inner, i * 30)
             return <line key={i} x1={p.x} y1={p.y} x2={q.x} y2={q.y} stroke="var(--ink)" strokeWidth={g.tick.width} strokeLinecap="round" />
           })}
-          <path d={arc} fill="none" stroke="var(--hour-fill)" strokeWidth={g.litWidth} strokeLinecap="round" />
+          {SECTIONS.map((i) =>
+            state(i) === 'future' ? null : <path key={i} d={arc(i)} fill="none" style={{ stroke: fill(i) }} strokeWidth={g.litWidth} strokeLinecap="round" />,
+          )}
         </>
       )
       break
@@ -69,17 +80,22 @@ export function DialArt({ dial, sky }: { dial: DialId; sky: Sky }) {
         <>
           <line {...ray(lit)} stroke="var(--hour-bloom)" strokeWidth={g.glowWidth} strokeLinecap="round" {...bloom} />
           {SECTIONS.map((i) =>
-            i === lit ? null : <line key={i} {...ray(i)} stroke="var(--slate)" strokeOpacity={g.opacity} strokeWidth={g.width} strokeLinecap="round" />,
+            state(i) === 'future' ? (
+              <line key={i} {...ray(i)} stroke="var(--slate)" strokeOpacity={g.opacity} strokeWidth={g.width} strokeLinecap="round" />
+            ) : (
+              <line key={i} {...ray(i)} style={{ stroke: fill(i) }} strokeWidth={g.litWidth} strokeLinecap="round" />
+            ),
           )}
-          <line {...ray(lit)} stroke="var(--hour-fill)" strokeWidth={g.litWidth} strokeLinecap="round" />
         </>
       )
       break
     }
     case 'lantern': {
       const g = ART.lantern
-      const a = sectionAngles(lit)
-      const litPath = arcPath(C, C, g.rOuter, 0, a.start, a.end)
+      const wedge = (i: number) => {
+        const a = sectionAngles(i)
+        return arcPath(C, C, g.rOuter, 0, a.start, a.end)
+      }
       body = (
         <>
           <defs>
@@ -87,13 +103,17 @@ export function DialArt({ dial, sky }: { dial: DialId; sky: Sky }) {
               <stop offset="0" stopColor="var(--hour-fill)" stopOpacity={0} />
               <stop offset="1" stopColor="var(--hour-fill)" stopOpacity={0.85} />
             </radialGradient>
+            <radialGradient id={gradNow} gradientUnits="userSpaceOnUse" cx={C} cy={C} r={g.rOuter}>
+              <stop offset="0" style={{ stopColor: current }} stopOpacity={0} />
+              <stop offset="1" style={{ stopColor: current }} stopOpacity={0.85} />
+            </radialGradient>
           </defs>
-          <path d={litPath} fill="var(--hour-bloom)" {...bloom} />
+          <path d={wedge(lit)} fill="var(--hour-bloom)" {...bloom} />
           {SECTIONS.map((i) => {
-            const s = sectionAngles(i)
-            return i === lit ? null : <path key={i} d={arcPath(C, C, g.rOuter, 0, s.start, s.end)} style={{ fill: lanternTint(stops[i]) }} />
+            const s = state(i)
+            if (s === 'future') return <path key={i} d={wedge(i)} style={{ fill: lanternTint(stops[i]) }} />
+            return <path key={i} d={wedge(i)} fill={`url(#${s === 'current' ? gradNow : grad})`} />
           })}
-          <path d={litPath} fill={`url(#${grad})`} />
         </>
       )
       break
@@ -108,9 +128,12 @@ export function DialArt({ dial, sky }: { dial: DialId; sky: Sky }) {
           <circle cx={C} cy={C} r={g.radius} fill="none" stroke="var(--line-strong)" strokeWidth={g.ringWidth} />
           {SECTIONS.map((i) => {
             const q = p(i)
-            return i === lit ? null : <circle key={i} cx={q.x} cy={q.y} r={g.dot} fill="var(--orbit-dot)" />
+            return state(i) === 'future' ? (
+              <circle key={i} cx={q.x} cy={q.y} r={g.dot} fill="var(--orbit-dot)" />
+            ) : (
+              <circle key={i} cx={q.x} cy={q.y} r={g.litDot} style={{ fill: fill(i) }} />
+            )
           })}
-          <circle cx={litP.x} cy={litP.y} r={g.litDot} fill="var(--hour-fill)" />
         </>
       )
       break

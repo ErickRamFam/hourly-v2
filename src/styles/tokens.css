@@ -22,6 +22,7 @@
   --color-glass: var(--glass);
   --color-hour: var(--hour);
   --color-hour-fill: var(--hour-fill);
+  --color-danger: var(--danger);
   --color-hour-soft: var(--hour-soft);
   --color-hour-glow: var(--hour-glow);
   --color-hour-bloom: var(--hour-bloom);
@@ -95,6 +96,8 @@
   --line-strong: rgb(27 35 49 / 0.18);
   --glass: rgb(247 249 252 / 0.62);
   --dialog-backdrop: rgb(27 35 49 / 0.32);
+  /* Invalid input (the timer field). Not hour-tinted. */
+  --danger: #b3261e;
 
   /* runtime hour hue; JS overwrites. Default is 10:00 Daylight. */
   --hour: #5ea3dc;
@@ -103,6 +106,8 @@
   /* derived. --hour-fill is what is drawn as "lit" (wedge, second hand, checks, discs);
      in light it is deepened toward ink so it reads against the pale page. */
   --hour-fill: color-mix(in oklab, var(--hour-lit, var(--hour)) 62%, var(--ink)); /* fallback; see @supports below */
+  /* The next hour through the same lit-fill rule: the tip of the timer bar. */
+  --hour-fill-next: color-mix(in oklab, var(--hour-lit-next, var(--hour-next)) 62%, var(--ink));
   --hour-glow: color-mix(in oklab, var(--hour) 26%, white);   /* halo: a whiter spot on the page */
   --hour-bloom: color-mix(in oklab, var(--hour) 50%, white); /* wedge glow: light, not a coloured shadow */
   --hour-soft: color-mix(in oklab, var(--hour) 34%, transparent);
@@ -152,6 +157,8 @@
   :root {
     --hour-fill: oklch(from var(--hour-lit, var(--hour)) min(l, 0.56) max(c, 0.12)
       calc(h - clamp(0, h - 80, 35) + clamp(0, h - 115, 35)));
+    --hour-fill-next: oklch(from var(--hour-lit-next, var(--hour-next)) min(l, 0.56) max(c, 0.12)
+      calc(h - clamp(0, h - 80, 35) + clamp(0, h - 115, 35)));
   }
 }
 
@@ -169,8 +176,10 @@
   --line-strong: rgb(232 237 245 / 0.16);
   --glass: rgb(22 29 46 / 0.6);
   --dialog-backdrop: rgb(5 8 16 / 0.55);
+  --danger: #ff8a80;
 
   --hour-fill: var(--hour-lit, var(--hour));
+  --hour-fill-next: var(--hour-lit-next, var(--hour-next));
   --hour-glow: color-mix(in oklab, var(--hour) 70%, white 6%);
   --hour-bloom: var(--hour-glow);
   --hour-soft: color-mix(in oklab, var(--hour) 40%, transparent);
@@ -208,7 +217,10 @@
 /* Dark lit-fill: lightness floor 0.74 so night indigos hold >= 3.6:1 against their haloed ring.
    Glow, halo and aurora stay on the raw --hour so the night stays deep. */
 @supports (color: oklch(from red l c h)) {
-  [data-theme="dark"] { --hour-fill: oklch(from var(--hour-lit, var(--hour)) max(l, 0.74) c h); }
+  [data-theme="dark"] {
+    --hour-fill: oklch(from var(--hour-lit, var(--hour)) max(l, 0.74) c h);
+    --hour-fill-next: oklch(from var(--hour-lit-next, var(--hour-next)) max(l, 0.74) c h);
+  }
 }
 
 /* Auto mode: follow the OS until JS resolves the day/night boundaries (same values as dark) */
@@ -225,7 +237,9 @@
     --line-strong: rgb(232 237 245 / 0.16);
     --glass: rgb(22 29 46 / 0.6);
     --dialog-backdrop: rgb(5 8 16 / 0.55);
+    --danger: #ff8a80;
     --hour-fill: var(--hour-lit, var(--hour));
+    --hour-fill-next: var(--hour-lit-next, var(--hour-next));
     --hour-glow: color-mix(in oklab, var(--hour) 70%, white 6%);
     --hour-bloom: var(--hour-glow);
     --hour-soft: color-mix(in oklab, var(--hour) 40%, transparent);
@@ -263,6 +277,7 @@
   @supports (color: oklch(from red l c h)) {
     :root:not([data-theme="light"]):not([data-theme="dark"]) {
       --hour-fill: oklch(from var(--hour-lit, var(--hour)) max(l, 0.74) c h);
+      --hour-fill-next: oklch(from var(--hour-lit-next, var(--hour-next)) max(l, 0.74) c h);
     }
   }
 }

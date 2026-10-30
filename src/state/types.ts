@@ -20,6 +20,8 @@ export type Settings = {
   secondHand: SecondHandMode
   use24h: boolean
   reduceMotion: ReduceMotion
+  /** Length in seconds (60 to 3600, whole minutes) that F8 starts when no timer is set. */
+  defaultTimerSec: number
 }
 
 export type Owned = { dials: string[]; skies: string[] }

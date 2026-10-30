@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, type ReactNode } from 'react'
 import { clearAll, load, save } from '../lib/storage'
+import { clearTimerStorage } from '../lib/timer'
 import { StoreContext } from './context'
 import { reducer, type Action } from './reducer'
 import type { AppState } from './types'
@@ -18,7 +19,11 @@ export function StoreProvider({ children, initial, persist = true }: StoreProvid
   const [state, rawDispatch] = useReducer(reducer, initial, (seed) => seed ?? load())
 
   const dispatch = useCallback((action: Action) => {
-    if (action.type === 'clearAll') clearAll()
+    if (action.type === 'clearAll') {
+      clearAll()
+      // The timer keeps its own key; TimerProvider's reset() also stops it (SettingsPanel).
+      clearTimerStorage()
+    }
     rawDispatch(action)
   }, [])
 

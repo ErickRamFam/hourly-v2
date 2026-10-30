@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { MAX_TITLE_LENGTH } from '../../lib/quests'
 import { initialState } from '../../lib/storage'
 import { dayKey } from '../../lib/time'
 import { StoreProvider } from '../../state/StoreProvider'
@@ -109,9 +110,12 @@ describe('removing a quest', () => {
     renderLog()
     screen.getByRole('checkbox', { name: 'B' }).focus()
     await user.tab()
+    expect(screen.getByRole('button', { name: 'Edit B' })).toHaveFocus()
+    await user.tab()
     expect(screen.getByRole('button', { name: 'Remove B' })).toHaveFocus()
     await user.keyboard('{Enter}')
     expect(screen.getByRole('checkbox', { name: 'C' })).toHaveFocus()
+    await user.tab()
     await user.tab()
     await user.keyboard('{Enter}')
     expect(screen.getByLabelText('Quest title')).toHaveFocus()
@@ -151,5 +155,130 @@ describe('touch (no hover)', () => {
     renderLog()
     await user.click(screen.getByText('A'))
     expect(document.querySelector('[data-selected]')).toBeNull()
+  })
+})
+
+describe('editing a quest', () => {
+  const field = () => screen.getByRole<HTMLInputElement>('textbox', { name: 'Edit quest title' })
+
+  it('puts Edit before Remove in one actions container', () => {
+    renderLog()
+    const actions = rowOf('A').querySelector('.row-actions')!
+    expect(Array.from(actions.querySelectorAll('button')).map((b) => b.getAttribute('aria-label'))).toEqual(['Edit A', 'Remove A'])
+  })
+
+  it('Enter saves, keeps state, repeats and the ledger, and returns focus to the checkbox', async () => {
+    const user = userEvent.setup()
+    renderLog()
+    const ledger = latest.ledger
+    const completions = latest.completions
+    await user.click(screen.getByRole('button', { name: 'Edit B' }))
+    expect(field()).toHaveFocus()
+    expect(field()).toHaveValue('B')
+    expect([field().selectionStart, field().selectionEnd]).toEqual([0, 1])
+    expect(field()).toHaveAttribute('maxLength', String(MAX_TITLE_LENGTH))
+    expect(within(rowOf('B')).queryByRole('button', { name: /^(Edit|Remove)/ })).toBeNull()
+    await user.keyboard('Bake bread{Enter}')
+    expect(titles()).toEqual(['A', 'Bake bread', 'C'])
+    expect(screen.getByRole('checkbox', { name: 'Bake bread' })).toHaveFocus()
+    expect(screen.getByRole('checkbox', { name: 'Bake bread' })).toHaveAttribute('aria-checked', 'true')
+    expect(latest.ledger).toBe(ledger)
+    expect(latest.completions).toBe(completions)
+    expect(latest.quests[1]).toEqual({ id: 'b', title: 'Bake bread', repeats: false, createdDay: TODAY })
+  })
+
+  it('blur saves and leaves focus where the user put it', async () => {
+    const user = userEvent.setup()
+    renderLog()
+    await user.click(screen.getByRole('button', { name: 'Edit A' }))
+    await user.keyboard('Arise')
+    await user.click(screen.getByLabelText('Quest title'))
+    expect(titles()).toEqual(['Arise', 'B', 'C'])
+    expect(screen.getByLabelText('Quest title')).toHaveFocus()
+    expect(rowOf('Arise')).toHaveAttribute('data-repeats')
+    expect(within(rowOf('Arise')).getByText('repeats daily')).toBeInTheDocument()
+  })
+
+  it('Escape cancels, restores the title and stays inside the log', async () => {
+    const user = userEvent.setup()
+    renderLog()
+    const onDocKey = vi.fn()
+    document.addEventListener('keydown', onDocKey)
+    await user.click(screen.getByRole('button', { name: 'Edit C' }))
+    await user.keyboard('Something else{Escape}')
+    document.removeEventListener('keydown', onDocKey)
+    expect(onDocKey.mock.calls.filter(([e]) => (e as KeyboardEvent).key === 'Escape')).toHaveLength(0)
+    expect(titles()).toEqual(['A', 'B', 'C'])
+    expect(screen.queryByRole('textbox', { name: 'Edit quest title' })).toBeNull()
+    expect(screen.getByRole('checkbox', { name: 'C' })).toHaveFocus()
+  })
+
+  it('an empty edit keeps the original title', async () => {
+    const user = userEvent.setup()
+    renderLog()
+    const before = latest
+    await user.click(screen.getByRole('button', { name: 'Edit A' }))
+    await user.clear(field())
+    await user.keyboard('{Enter}')
+    expect(titles()).toEqual(['A', 'B', 'C'])
+    expect(latest).toBe(before)
+  })
+
+  it('the checkbox still works while editing', async () => {
+    const user = userEvent.setup()
+    renderLog()
+    await user.click(screen.getByRole('button', { name: 'Edit A' }))
+    await user.keyboard('A2')
+    await user.click(screen.getByRole('checkbox', { name: 'A' }))
+    expect(screen.getByRole('checkbox', { name: 'A2' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('only one row edits at a time: starting a second edit saves the first', async () => {
+    const user = userEvent.setup()
+    renderLog()
+    await user.click(screen.getByRole('button', { name: 'Edit A' }))
+    await user.keyboard('First')
+    await user.click(screen.getByRole('button', { name: 'Edit C' }))
+    expect(screen.getAllByRole('textbox', { name: 'Edit quest title' })).toHaveLength(1)
+    expect(field()).toHaveValue('C')
+    expect(titles()).toEqual(['First', 'B', 'C'])
+  })
+
+  it('drops the edit safely when the quest leaves the log, and Undo still works', async () => {
+    const user = userEvent.setup()
+    renderLog()
+    await user.click(screen.getByRole('button', { name: 'Remove B' }))
+    await user.click(screen.getByRole('button', { name: 'Edit C' }))
+    await user.keyboard('Cee')
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(titles()).toEqual(['A', 'B', 'Cee'])
+    expect(screen.getByRole('checkbox', { name: 'B' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('clears the editing state when the edited quest is removed from under it', () => {
+    const { rerender } = renderLog()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit A' }))
+    expect(field()).toBeInTheDocument()
+    const next = { ...seeded(), quests: seeded().quests.filter((q) => q.id !== 'a') }
+    rerender(
+      <StoreProvider persist={false} initial={next} key="next">
+        <QuestLog today={TODAY} />
+        <Probe />
+      </StoreProvider>,
+    )
+    expect(screen.queryByRole('textbox', { name: 'Edit quest title' })).toBeNull()
+    expect(titles()).toEqual(['B', 'C'])
+  })
+
+  it('on touch, tapping a title reveals Edit and Remove for that row', async () => {
+    mockTouch()
+    const user = userEvent.setup()
+    renderLog()
+    await user.click(screen.getByText('B'))
+    expect(rowOf('B')).toHaveAttribute('data-selected')
+    await user.click(within(rowOf('B')).getByRole('button', { name: 'Edit B' }))
+    expect(field()).toHaveValue('B')
+    await user.keyboard('Bee{Enter}')
+    expect(titles()).toEqual(['A', 'Bee', 'C'])
   })
 })

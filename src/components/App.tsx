@@ -2,6 +2,8 @@ import type { DialId } from '../lib/dials'
 import { getSky } from '../lib/skies'
 import { dayKey, formatTime } from '../lib/time'
 import { StoreProvider, type StoreProviderProps } from '../state/StoreProvider'
+import { TimerProvider } from '../state/TimerProvider'
+import { useTimerContext } from '../state/timerContext'
 import { useHourHue } from '../state/useHourHue'
 import { useNow } from '../state/useNow'
 import { useReducedMotion } from '../state/useReducedMotion'
@@ -11,6 +13,8 @@ import { Header } from './Header'
 import { HourWord } from './HourWord'
 import { QuestLog } from './QuestLog'
 import { Rail } from './Rail'
+import { TimerBar } from './TimerBar'
+import { TimerLabel } from './TimerLabel'
 import { WeekRow } from './WeekRow'
 
 function ClockHero() {
@@ -18,6 +22,7 @@ function ClockHero() {
   const reduceMotion = useReducedMotion(settings)
   const sweep = settings.secondHand === 'sweep' && !reduceMotion
   const now = useNow(settings.secondHand === 'hidden' ? 'minute' : sweep ? 'frame' : 'second')
+  const timer = useTimerContext()
   return (
     <div className="clock-wrap relative aspect-square">
       <div className="halo light-on" aria-hidden="true" />
@@ -30,6 +35,9 @@ function ClockHero() {
         reduceMotion={reduceMotion}
         use24h={settings.use24h}
       />
+      {/* The timer sits over the clock but never drives it: separate SVG, separate state. */}
+      {timer && <TimerBar timer={timer} reduceMotion={reduceMotion} />}
+      {timer && <TimerLabel timer={timer} reduceMotion={reduceMotion} />}
     </div>
   )
 }
@@ -82,7 +90,9 @@ export type AppProps = Pick<StoreProviderProps, 'initial' | 'persist'>
 export function App(props: AppProps) {
   return (
     <StoreProvider {...props}>
-      <Shell />
+      <TimerProvider>
+        <Shell />
+      </TimerProvider>
     </StoreProvider>
   )
 }

@@ -97,3 +97,36 @@ describe('day/night steppers', () => {
     expect(within(day).getByText('0:00')).toBeInTheDocument()
   })
 })
+
+describe('Default timer', () => {
+  it('sits between Night begins and Second hand, steps a minute and clamps at 1:00 and 60:00', async () => {
+    const user = userEvent.setup()
+    renderSettings({ defaultTimerSec: 120 })
+    const labels = Array.from(document.querySelectorAll('.srow > span:first-child')).map((el) => el.textContent)
+    expect(labels.slice(2, 5)).toEqual(['Night begins', 'Default timer', 'Second hand'])
+    const group = screen.getByRole('group', { name: 'Default timer' })
+    const shorter = within(group).getByRole('button', { name: 'Shorter' })
+    const longer = within(group).getByRole('button', { name: 'Longer' })
+    expect(group).toHaveTextContent('2:00')
+    await user.click(shorter)
+    expect(group).toHaveTextContent('1:00')
+    await user.click(shorter)
+    expect(group).toHaveTextContent('1:00') // no wrap
+    expect(shorter).toHaveFocus()
+    expect(shorter).not.toBeDisabled()
+    await user.click(longer)
+    expect(group).toHaveTextContent('2:00')
+  })
+
+  it('stops at 60:00', async () => {
+    const user = userEvent.setup()
+    renderSettings({ defaultTimerSec: 3540 })
+    const group = screen.getByRole('group', { name: 'Default timer' })
+    const longer = within(group).getByRole('button', { name: 'Longer' })
+    await user.click(longer)
+    expect(group).toHaveTextContent('60:00')
+    await user.click(longer)
+    expect(group).toHaveTextContent('60:00')
+    expect(longer).toHaveFocus()
+  })
+})

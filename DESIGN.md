@@ -28,6 +28,7 @@ pixel samples of the running app (`?at=HH:MM`, 1440×900), not from flat hexes.
 | `line-strong` | `rgb(27 35 49 / .18)`     | Control borders, unchecked box, first log rule, seven-day ring |
 | `glass`       | `rgb(247 249 252 / .62)`  | Panel fill under backdrop blur |
 | `dialog-backdrop` | `rgb(27 35 49 / .32)` | Behind the confirm dialog |
+| `danger`      | `#B3261E`                 | Invalid input (timer field) only |
 
 ### Dark
 
@@ -43,6 +44,7 @@ pixel samples of the running app (`?at=HH:MM`, 1440×900), not from flat hexes.
 | `line-strong` | `rgb(232 237 245 / .16)`  | Control borders |
 | `glass`       | `rgb(22 29 46 / .60)`     | Panel fill |
 | `dialog-backdrop` | `rgb(5 8 16 / .55)`   | Behind the confirm dialog |
+| `danger`      | `#FF8A80`                 | Invalid input (timer field) only |
 
 ### Contrast, measured on the washed page (WCAG 2.x, AA = 4.5 text, 3.0 graphics)
 
@@ -79,13 +81,14 @@ Dark dialog: `0 0 0 1px rgb(232 237 245/.08), 0 2px 4px rgb(5 8 16/.4), 0 28px 6
 ### Hour-derived colors (runtime)
 
 JS sets on `<html>`: `--hour` (current stop of the equipped sky), `--hour-next` (next
-stop), and for the Graphite sky only `--hour-lit` (the Daylight stop). JS sets `--halo-x` /
+stop), and for the Graphite sky only `--hour-lit` and `--hour-lit-next` (the Daylight stops). JS sets `--halo-x` /
 `--halo-y` on the halo element (§5). Everything else derives in CSS.
 
 | Var           | Light | Dark | Used for |
 | ------------- | ----- | ---- | -------- |
 | `--hour`      | ramp hex | same | aurora, source for all below |
 | `--hour-fill` | lit-fill rule below; fallback without relative color: `color-mix(in oklab, hour 62%, ink)` (all 24 stops ≥ 3.1:1) | `oklch(from var(--hour-lit, var(--hour)) max(l, .74) c h)`; fallback `var(--hour-lit, var(--hour))` | **everything drawn as lit**: wedge, second hand, cap ring, checked box, seven-day discs, active rail dot, lumen ring, equipped dot, segmented underline |
+| `--hour-fill-next` | the lit-fill rule on `--hour-lit-next, --hour-next` | same as `--hour-fill`, next hour | the tip of the timer bar (§6, Timer) |
 | `--hour-glow` | `color-mix(in oklab, hour 26%, white)` | `hour 70%, white 6%` | halo |
 | `--hour-bloom`| `color-mix(in oklab, hour 50%, white)` | `= --hour-glow` | the two blurred copies around the lit mark |
 | `--hour-soft` | `hour 34%, transparent` | `hour 40%, transparent` | glow shadow on rail dot and underline, today ring |
@@ -106,8 +109,9 @@ the night stays deep, and only the fill is lifted.
 Lightness cap .56 (≥ 3:1 against the haloed page); chroma floor .12 (pale straw and sea glass
 stay colour, never grey or sage); hue identity below 80° and above 150°, flat 80° across
 80–115° (yellows become gold, never olive), and 115–150° re-spread to 80–150° so the map is
-continuous. 12h and 13–14h may share nearly the same gold; one wedge is lit at a time and
-the position carries the change. Measured: 12:07 `#A26B06`, 14:30 `#9A6C02`, 16:40 `#A46400`.
+continuous. 12h and 13–14h may share nearly the same gold; the passed hours of the lap all
+share the current `--hour-fill` and the current hour blends into it, so position and the
+blend carry the change. Measured: 12:07 `#A26B06`, 14:30 `#9A6C02`, 16:40 `#A46400`.
 **Dark:** lightness floor .74 (night indigo 23h `#9FA0FD`, 3h `#9499F5`; coral 19h `#EB8192`).
 
 ### Light strengths (per theme)
@@ -268,13 +272,13 @@ mix(ink 6%, transparent), var(--shadow-panel)`. Nothing else is translucent.
 min(440px, 52vh)))`; at ≥1600w and ≥960h the 440 becomes 480; at ≤760 `min(100%, 320px)`.
 
 - **Bezel:** circle r 189.5, 1px `line`.
-- **Sections:** 12 annular arcs, outer r 186, inner r 158 (band 28), each 30° minus a 1.5°
+- **Sections** (Sector dial; the default dial is Lantern, below): 12 annular arcs, outer r 186, inner r 158 (band 28), each 30° minus a 1.5°
   gap (0.75° per side). Section i spans hour i to i+1.
 - **Unlit tint:** `fill: color-mix(in oklab, color-mix(in oklab, <lap stop> 55%,
   var(--slate)) var(--ring-tint), transparent)`. The lap is stops 0–11 before noon and
   12–23 after, so mornings and evenings tint differently. Squint test: only the lit wedge,
   halo, and hands survive.
-- **Lit section:** drawn in this order: (1) the wedge blurred `stdDeviation 16`, fill
+- **Lit sections:** drawn in this order (the bloom copies for the current section only): (1) the wedge blurred `stdDeviation 16`, fill
   `--hour-bloom`, opacity `--glow-far`, filter region -60% / 220%; (2) blurred 6, same
   fill, opacity `--glow-near`, region -40% / 180%; (3) the unlit sections; (4) the wedge,
   fill `--hour-fill`; (5) outer highlight arc r 184, inset 1.5° each end, 1px white at
@@ -288,29 +292,93 @@ min(440px, 52vh)))`; at ≥1600w and ≥960h the 440 becomes 480; at ≤760 `min
   `paper`, r 5.5 `ink`.
 - **Second hand:** sweep (rAF, default), tick (180ms `cubic-bezier(.4,2,.5,1)` per
   second), hidden.
-- **Top of the hour:** the old wedge fades to its tint and the new one rises over 1200ms
-  `--ease-dawn`; halo, aurora, and every `--hour-*` follow via a 1200ms transition.
+- **Fill, hour by hour:** every dial fills as the lap goes. Hours that have passed this lap
+  stay lit, the current hour is lit, future hours are unlit. Section index `lit = hour % 12`
+  (`sectionForHour`), so the lap clears at 12:00 am and 12:00 pm by itself. The fill is
+  derived only from the current time, never from history or storage: at 3:40 pm the page
+  loads with 12 to 2 filled, 3 blending, the rest empty, and it never animates up from 12.
+  Each lit mark carries `data-state="passed" | "current" | "future"`.
+- **Colour:** all passed marks share one colour, the current `--hour-fill`. The current mark
+  starts lighter and deepens into it over the hour: `progress = (minutes·60 + seconds) / 3600`,
+  `pct = round(55 + 45·progress)`, fill `color-mix(in oklab, var(--hour-fill) pct%, white)`
+  (`src/components/clock/fill.ts`). The bloom (near + far copies) stays under the current
+  mark only, so the glow still marks "now".
+- **Top of the hour:** the new mark fades in over the passed ones over 1200ms `--ease-dawn`
+  (at 12:00 the lap's marks fade out together); halo, aurora, and every `--hour-*` follow via
+  a 1200ms transition. If the hour turns while the app is open, the new current mark pulses
+  softly twice (`hour-flash`, opacity 1 → .45 → 1 twice, 1400ms `--ease-glide`). Never on
+  load, reload, or a dial, sky or theme change; never under reduced motion.
 
-Dial variants (same glow stack: near + far bloom copies under the lit mark):
+Dial variants (same glow stack: near + far bloom copies under the current mark). Each fills in
+its own way; only Lantern fills with wedges from the centre:
 
-**Sector** (default). As above.
+**Sector** (10 lumens). As above: passed ring segments take the passed colour, the current
+one blends, future segments keep their ring tint.
 
 **Hairline.** Ring r 172, 1px `line-strong`. Twelve hour ticks r 178→164, 1.5 `ink`;
 sixty minute ticks r 176→172, 1 `pewter` .5. No sections. Lit: a 3px arc at r 172 across
-the hour (inset 1°), `--hour-fill`, round caps.
+the hour (inset 1°), `--hour-fill`, round caps. Every passed hour keeps its arc (no bloom on
+passed arcs).
 
 **Rays.** Twelve radial lines r 124→184 at the section centers, 1.5, `slate` at .55,
-round caps. Lit ray 3 wide `--hour-fill`. Numerals move to r 104. No minute ticks.
+round caps. Lit ray 3 wide `--hour-fill`; every passed ray stays lit, future rays stay thin
+`slate`. Numerals move to r 104. No minute ticks.
 
-**Lantern.** Twelve full wedges r 0→186, no gaps, no outlines, each filled
+**Lantern** (default, free). Twelve full wedges r 0→186, no gaps, no outlines, each filled
 `color-mix(in oklab, color-mix(in oklab, <lap stop> 25%, var(--slate)) var(--lantern-tint),
 transparent)` (tint 7% light, 9% dark), so the unlit face is one soft disc, never two halves.
-Lit wedge: radial gradient `--hour-fill` 0 at center → .85 at the rim. Cap grows to r 7.
+Lit wedges (passed): radial gradient `--hour-fill` 0 at center → .85 at the rim; the current
+wedge has a second gradient with the same stops in the blended colour. Cap grows to r 7.
 
 **Orbit.** 1px `line-strong` ring r 172; twelve dots r 5.5 at the section centers filled
 `--orbit-dot` (slate at 40% light / 32% dark), so the structure reads; lit dot r 9
-`--hour-fill`, breathing `scale 1→1.12` 4s `--ease-glide` (off under reduced
-motion). No numerals.
+`--hour-fill`. Passed dots stay swelled (r 9, lit colour); only the current dot breathes,
+`scale 1→1.12` 4s `--ease-glide` (off under reduced motion); future dots stay small. No
+numerals.
+
+### Timer
+
+A countdown that sits with the clock but never drives it: its own state, its own SVG, its
+own storage key. The clock never changes because of the timer.
+
+- **Label:** "00:00" above the 12, 15/500 tabular, `slate` idle, `ink` running or paused, in a
+  borderless button (radius 10, `--hour-wash` on hover). Centred, its bottom edge 6px above
+  the bar's outer edge (r 208, so 2% of the clock box above its top), above both SVGs. The
+  hero gets 36px of top room at ≤760 and on desktops up to 900 tall so it never meets the
+  header.
+- **Field:** pressing the label opens an inline field with the time selected; an `--hour-ink`
+  underline only while typing, no box. Accepts `MM:SS` (SS 00 to 59) or a bare number of
+  minutes, trimmed, 00:01 to 60:00. Invalid input stays open with `aria-invalid` in
+  `--danger` (light `#B3261E`, dark `#FF8A80`). Idle: `0` or `00:00` is an error and
+  clicking away discards. Enter starts. Pressing a running label pauses it and opens the
+  field; Enter with a new time resumes from that time; clicking away or Escape leaves it
+  paused; `0` on a paused timer cancels it (idle, no sound).
+- **Bar:** a separate SVG over the clock (`.timer-bar`, `inset: 0`, `overflow: visible`, no
+  pointer events), annulus r 198 to 208 in the 400 box, just outside the ring (r 186 to 189.5).
+  It starts at 12 and covers `remaining / 60:00` of the circle (60:00 is the full ring),
+  shrinking back toward 12. Colour runs from the current hour's lit colour at 12
+  (`--hour-fill`) to the next hour's at the tip (`--hour-fill-next`, the same lit-fill rule on
+  `--hour-lit-next` / `--hour-next`, so Graphite stays coloured and light-theme contrast
+  holds). Built from 4° segments that overlap by 0.5°; an SVG linear or radial gradient
+  cannot follow an arc. Follows the equipped sky.
+- **Paused:** with the field closed, the time pulses (opacity 1 → .4, 1600ms, infinite) and
+  two 2×10 `--hour-fill` bars sit beside it. The open field has priority: no cue. No cue idle
+  or running.
+- **Time up:** the beep is booked on the Web Audio clock when the timer starts or resumes (three
+  soft 880Hz pulses, 0.8s apart), so it plays on time even in a background tab; it is
+  cancelled on pause, edit, cancel and reset. At 0:00 the full ring fades in and out three
+  times over 2.4s while "Time is up" is announced, then the label returns to 00:00. If the
+  page is hidden or unfocused and notifications are allowed (asked once, on the first start),
+  a "Time is up" notification shows. Reduced motion: no fades, the ring shows still for 1s,
+  the beep still plays.
+- **Keys:** F8 and MediaPlayPause toggle pause and resume, start the Default timer when idle,
+  and resume and close an open field. Best effort: browsers often never see media keys, and
+  Chrome DevTools takes F8 while open.
+- **Persistence:** `hourly.timer.v1` holds `{ status: "running", endsAt, totalMs }` or
+  `{ status: "paused", remainingMs, totalMs }`; remaining is always read from `endsAt`, so
+  throttled background tabs never drift. A reload resumes; a timer that ended while the tab
+  was closed is cleared silently. Clear all data removes it and stops the timer. While
+  running the tab title reads "14:32 · Hourly".
 
 ## 7. Layout
 
@@ -346,8 +414,18 @@ wash bleeds past the text edge), `border-top: 1px line`; first row `line-strong`
 Checkbox 22px, radius 6, margin-top 1, `inset 0 0 0 1px line-strong`; checked: fill
 `--hour-fill`, no border, check path `M2.5 7.5l3 3 6-7` 1.8 stroke `paper` in a 14px box.
 Checked title `slate`, no strikethrough. Meta "repeats daily" small `pewter`, padding-top 4.
-**Hover:** row background `--hour-wash`, "Remove" (small `pewter`) appears right. **Focus:**
-2px `--hour-ink` ring, offset 3, on the checkbox.
+**Hover:** row background `--hour-wash`; "Edit" and "Remove" (small `pewter`, 14px apart, in
+that order) appear at the row's top right. They also appear when either has keyboard focus,
+and on touch when the row is selected by tapping its title. The row reserves 101px on the
+right for them (95 + the 6px inset) on hover devices, and on touch while selected, so they
+never sit on the title or "repeats daily". **Focus:** 2px `--hour-ink` ring, offset 3, on the
+checkbox.
+
+**Edit.** "Edit" swaps the title for a text field in the title's own type (17/450, 16 at
+≤760), an `--hour-ink` underline and no box, all text selected, at most 120 characters. Enter
+or blur saves; Escape cancels; an empty edit keeps the old title. Done state and "repeats
+daily" do not change, the actions hide while editing, and the checkbox still works. Enter
+and Escape return focus to the row's checkbox. One row edits at a time.
 
 Check-off: `check-fill` (scale 1→.88→1, 320ms `--ease-lift`) while the fill transitions to
 `--hour-fill`; `check-draw` (`stroke-dasharray:24`, offset 24→0, 320ms `--ease-settle`);
@@ -388,7 +466,8 @@ margin 28 0 6, padding-top 14, `border-top: 1px line`.
   sky; Sector preview omits numerals and minute ticks), with name (17/450), description
   (13 `slate`), and "Equipped" beside it, gap 20. Below, the other four as rows:
   min-height 66, padding 6 0, gap 14, `border-top: 1px line`; the dial drawn straight on
-  the glass at 64px (no tile, no fill, no border), lit at hour 10 with its glow; name,
+  the glass at 64px (no tile, no fill, no border), filled to hour 10 the way the dial fills
+(hours 0 to 9 passed, 10 current at a fixed blend of progress .5, near glow under 10); name,
   description, state right. The 64px art uses heavier strokes than §6 so it survives the
   scale (viewBox units): Sector band 186→150, gap 3°; Hairline ring 6 `line-strong`, ticks
   r 180→160 at 9, lit arc 18; Rays r 118→184 at 9 `slate` .55, lit 18; Lantern tints 7%;
@@ -407,10 +486,12 @@ first); label body `ink` left, control right.
   text 15/500 `slate`, 18px apart, padding 4 0 8. Selected: `ink` with a 2px
   `--hour-fill` underline (radius 999, `0 0 8px --hour-soft`), class `.lit-underline`.
   No track, no pill, no thumb, no shadow. Reduce motion is "Off / On" in the same control.
-- *Stepper* (Day begins, Night begins): 36px tall, radius 10, `inset 0 0 0 1px
+- *Stepper* (Day begins, Night begins, Default timer): 36px tall, radius 10, `inset 0 0 0 1px
   line-strong`; "−" and "+" 32×36 in `slate` 18px; value 56px min, tabular 15/500; steps
   by one hour. The value follows Clock labels: "6 am" / "7 pm" in 12h, "6:00" / "19:00" in
-  24h.
+  24h. Default timer steps by one minute from "1:00" to "60:00" and clamps (no wrap; at a
+  limit the button stays enabled and does nothing, so focus stays). Default 30:00; it is what
+  F8 starts when no timer is set.
 - *Clear all data:* 28px below the rows with a hairline above, a text button 15/500
   `pewter`. The tagline sits at the panel foot, serif italic 15 `slate`.
 
@@ -431,7 +512,10 @@ with no history: outlines only.
 | quick | 200ms | panel-out, segment underline slide, dialog in |
 | settle | 320ms | check-off, panel-in, row remove |
 | slow | 600ms | hour word crossfade |
-| dawn | 1200ms | lit section handoff, `--hour` recolor, load |
+| dawn | 1200ms | new hour joins the fill, 12:00 clear, `--hour` recolor, load |
+| hour flash | 1400ms | two soft pulses on the new current mark, `--ease-glide` |
+| timer pulse | 1600ms | paused timer label, infinite, `--ease-glide` |
+| timer done | 2400ms | three fades of the full timer ring at 0:00, `--ease-dawn` |
 | `--ease-settle` | `cubic-bezier(.25,1,.5,1)` | arrivals |
 | `--ease-glide` | `cubic-bezier(.65,0,.35,1)` | aurora drift, departures |
 | `--ease-lift` | `cubic-bezier(.34,1.4,.64,1)` | the checkbox squeeze only |
@@ -441,7 +525,8 @@ Load, the one orchestrated moment: the page renders still, then halo, lit wedge,
 fade in over 1200ms (`light-on`) and the hour word and line rise 4px over 600ms from 240ms
 (`word-in`). Nothing else enters or staggers. Reduced motion (OS or setting, via
 `[data-reduce-motion="true"]` on `<html>`): aurora frozen, no breathing, entrances 1ms,
-second hand forced to tick, hour handoff is a cut.
+second hand forced to tick, hour handoff is a cut, no new-hour flash, no timer pulse or
+time-up fades (all three gated in JS too, not only in CSS).
 
 ## 10. Copy
 
@@ -477,24 +562,32 @@ place it appears): "Every hour gets its own color."
 
 Quest log: title "Today's log"; count "2 of 5"; all done "Cleared."; empty "Nothing on the
 log yet."; placeholder "Add a quest"; chip "Repeats daily"; row meta "repeats daily"; row
-action "Remove"; lumen float "+1"; clean-day toast "A clean day. +2 lumens."
+actions "Edit" and "Remove" (screen readers: "Edit Water the plants", "Remove Water the
+plants"); edit field "Edit quest title"; lumen float "+1"; clean-day toast "A clean day. +2 lumens."
+
+Timer: idle "00:00"; screen-reader names "Timer, 00:00. Press to set a time", "Timer, 14:32
+left. Press to pause and edit", "Timer paused, 14:32 left. Press to edit"; field "Timer, minutes
+and seconds"; at the end "Time is up" (status region and system notification); tab title
+"14:32 · Hourly" while running.
 
 Rail tooltips: "Today", "Collection", "Settings", "12 lumens".
 
 Settings: title "Settings"; rows "Theme" (Auto / Light / Dark), "Day begins", "Night
-begins", "Second hand" (Sweep / Tick / Hidden), "Clock labels" (12h / 24h), "Reduce motion"
+begins", "Default timer" (1:00 to 60:00), "Second hand" (Sweep / Tick / Hidden), "Clock labels" (12h / 24h), "Reduce motion"
 (Off / On); button "Clear all data"; dialog title "Clear all data?", body "Quests, lumens,
 and your collection will be removed from this browser.", buttons "Cancel" / "Clear
-everything". Stepper buttons are labelled "Earlier" / "Later" for screen readers.
+everything". Stepper buttons are labelled "Earlier" / "Later" for screen readers; the Default
+timer stepper's are "Shorter" / "Longer".
 
 Collection: title "Collection"; balance "You have 12 lumens, 31 earned in all."; groups
 "Dials", "Skies"; states "Equipped", "Equip", "Buy"; price "8 lumens"; all owned "You have
 the whole collection."
 
-Dials: Sector, "Filled arcs. The lit hour is a solid wedge of light." (default); Hairline,
-"A thin ring and ticks. The lit hour is a bright arc." 6 lumens; Rays, "Twelve lines from
-the center. The lit one glows." 8 lumens; Lantern, "Soft wedges with no edges, lit from
-within." 10 lumens; Orbit, "Twelve points around the hour. The lit one swells." 12 lumens.
+Dials, in price order (the Collection list reads this way): Lantern, "Soft wedges lit from
+within. Each hour fills in as it passes." (default, free); Hairline, "A thin ring and ticks.
+Each hour adds a bright arc." 6 lumens; Rays, "Twelve lines from the center. Each hour lights
+one more." 8 lumens; Sector, "Filled arcs. Each hour fills in as it passes." 10 lumens; Orbit,
+"Twelve points around the hour. Each one swells as it passes." 12 lumens.
 
 Skies: Daylight, "Indigo to gold and back, the way a day goes." (default); Ember, "Warm all
 day, from wine to apricot to coal." 8 lumens; Tide, "Sea glass and deep water." 8 lumens;
