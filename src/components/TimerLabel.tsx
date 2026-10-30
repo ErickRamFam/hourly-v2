@@ -6,8 +6,9 @@ import { timerLabelName } from './timerVisuals'
 /**
  * The "00:00" above the 12 (DESIGN.md §6, Timer). Press it to type a time: digits only, up
  * to four, the colon added as you type (`5` is 5:00, `530` is 5:30);
- * pressing it while running pauses first. Paused and closed, the time pulses and a small lit
- * play button beside it resumes; open, the field has priority and the play button hides.
+ * a running countdown freezes while the field is open and picks up again if it closes without
+ * a new time. Beside the time, one toggle slot: a pause button while running, a play button
+ * (and a soft pulse on the time) while paused, nothing idle or while the field is open.
  */
 export function TimerLabel({ timer, reduceMotion }: { timer: Timer; reduceMotion: boolean }) {
   /** The field holds digits only (at most four); the colon is display. */
@@ -68,6 +69,8 @@ export function TimerLabel({ timer, reduceMotion }: { timer: Timer; reduceMotion
   }
 
   const cue = phase === 'paused' && !editing
+  /** The toggle slot: shown only while counting down or paused, and never over an open field. */
+  const slot = !editing && (phase === 'running' || phase === 'paused')
   const shown = phase === 'idle' || phase === 'done' ? '00:00' : formatTimer(timer.remainingMs)
 
   return (
@@ -109,20 +112,22 @@ export function TimerLabel({ timer, reduceMotion }: { timer: Timer; reduceMotion
           >
             <span className={cue && !reduceMotion ? 'timer-time timer-pulse' : 'timer-time'}>{shown}</span>
           </button>
-          {/* Its own Tab stop right after the time. Resumes like P; it never opens the field. */}
-          {cue && (
+          {/* One button that swaps pause and play, so focus stays on it across a toggle. Its own Tab
+              stop right after the time; does what P does and never opens the field. */}
+          {slot && (
             <button
               type="button"
               className="timer-play press"
-              aria-label="Resume timer"
-              onClick={() => {
-                timer.resume()
-                // The play button goes away once running; keep focus on the timer.
-                buttonRef.current?.focus()
-              }}
+              aria-label={phase === 'running' ? 'Pause timer' : 'Resume timer'}
+              data-action={phase === 'running' ? 'pause' : 'play'}
+              onClick={() => (phase === 'running' ? timer.pause() : timer.resume())}
             >
               <svg viewBox="0 0 8 10" width={8} height={10} aria-hidden="true">
-                <path d="M0.75 0.9 L7.4 5 L0.75 9.1 Z" />
+                {phase === 'running' ? (
+                  <path d="M0.75 0.75 H2.85 V9.25 H0.75 Z M5.15 0.75 H7.25 V9.25 H5.15 Z" />
+                ) : (
+                  <path d="M0.75 0.9 L7.4 5 L0.75 9.1 Z" />
+                )}
               </svg>
             </button>
           )}

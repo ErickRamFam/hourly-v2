@@ -28,7 +28,7 @@ export function barSegments(sweepDeg: number): { d: string; color: string }[] {
 /** Screen-reader name of the label button for each phase. */
 export function timerLabelName(timer: Pick<Timer, 'phase' | 'remainingMs'>): string {
   const t = formatTimer(timer.remainingMs)
-  if (timer.phase === 'running') return `Timer, ${t} left. Press to pause and edit`
+  if (timer.phase === 'running') return `Timer, ${t} left. Press to edit`
   if (timer.phase === 'paused') return `Timer paused, ${t} left. Press to edit`
   return 'Timer, 00:00. Press to set a time'
 }
