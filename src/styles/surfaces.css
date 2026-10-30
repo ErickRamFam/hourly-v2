@@ -207,9 +207,21 @@
 }
 .hour-flash { animation: hour-flash 1400ms var(--ease-glide) both; }
 
-/* ---- Reduced motion: no drift, no breathe, no flash, instant transitions ---- */
+/* ---- Timer: the paused time pulses; at time up the full ring fades in and out three times ---- */
+@keyframes timer-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+@keyframes timer-done {
+  0%, 33.33%, 66.67%, 100% { opacity: 0; }
+  16.67%, 50%, 83.33%      { opacity: 1; }
+}
+.timer-pulse { animation: timer-pulse 1600ms var(--ease-glide) infinite; }
+.timer-done  { animation: timer-done 2400ms var(--ease-dawn) both; }
+
+/* ---- Reduced motion: no drift, no breathe, no flash, no timer fades, instant transitions ---- */
 @media (prefers-reduced-motion: reduce) {
-  .aurora-a, .aurora-b, .aurora-c, .orbit-breathe, .hour-flash { animation: none; }
+  .aurora-a, .aurora-b, .aurora-c, .orbit-breathe, .hour-flash, .timer-pulse, .timer-done { animation: none; }
   .light-on, .word-in, .panel-in, .panel-out, .sheet-in, .check-fill, .lumen-rise { animation-duration: 1ms; }
   .check-draw { animation: none; stroke-dashoffset: 0; }
 }
@@ -217,7 +229,9 @@
 [data-reduce-motion="true"] .aurora-b,
 [data-reduce-motion="true"] .aurora-c,
 [data-reduce-motion="true"] .orbit-breathe,
-[data-reduce-motion="true"] .hour-flash { animation: none; }
+[data-reduce-motion="true"] .hour-flash,
+[data-reduce-motion="true"] .timer-pulse,
+[data-reduce-motion="true"] .timer-done { animation: none; }
 [data-reduce-motion="true"] .light-on,
 [data-reduce-motion="true"] .word-in,
 [data-reduce-motion="true"] .panel-in,

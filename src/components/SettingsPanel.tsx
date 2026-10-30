@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type KeyboardEvent } from 'react'
 import { rovingIndex } from '../lib/roving'
 import { formatHourStop } from '../lib/time'
+import { useTimerContext } from '../state/timerContext'
 import type { ReduceMotion, SecondHandMode, Settings, ThemeOverride } from '../state/types'
 import { useAppState, useDispatch } from '../state/useStore'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -81,6 +82,7 @@ function Row({ label, labelId, children }: { label: string; labelId?: string; ch
 export function SettingsPanel() {
   const { settings } = useAppState()
   const dispatch = useDispatch()
+  const timer = useTimerContext()
   const [confirming, setConfirming] = useState(false)
   const dayId = useId()
   const nightId = useId()
@@ -160,6 +162,8 @@ export function SettingsPanel() {
           onCancel={() => setConfirming(false)}
           onConfirm={() => {
             dispatch({ type: 'clearAll' })
+            // The timer is not in AppState: stop its sound, notification and title, and clear its key.
+            timer?.reset()
             setConfirming(false)
           }}
         />

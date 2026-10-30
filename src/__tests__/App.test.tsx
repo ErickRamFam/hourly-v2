@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { App } from '../components/App'
 import { STORAGE_KEY, initialState } from '../lib/storage'
+import { TIMER_KEY } from '../lib/timer'
 import { getSky, hourHue } from '../lib/skies'
 import { hourLine, hourWord } from '../lib/time'
 
@@ -19,9 +20,9 @@ describe('App', () => {
     expect(screen.getByText(hourLine(hour))).toBeInTheDocument()
     expect(screen.getByText('Nothing on the log yet.')).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: 'Sections' })).toBeInTheDocument()
-    // Two polite live regions: the minute time announcer and the log's toast slot.
+    // Three polite live regions: the minute time announcer, the log's toast slot, and the timer's "Time is up".
     const statuses = screen.getAllByRole('status')
-    expect(statuses).toHaveLength(2)
+    expect(statuses).toHaveLength(3)
     expect(statuses.some((el) => /\d:\d\d/.test(el.textContent ?? ''))).toBe(true)
     const root = document.documentElement
     expect(root.style.getPropertyValue('--hour')).toMatch(/^#/)
@@ -68,6 +69,8 @@ describe('App', () => {
     const root = document.documentElement
     expect(root.style.getPropertyValue('--hour')).toBe(hourHue(getSky('graphite'), hour))
     expect(root.style.getPropertyValue('--hour-lit')).toBe(hourHue(getSky('daylight'), hour))
+    // The timer bar's tip colour borrows the same way.
+    expect(root.style.getPropertyValue('--hour-lit-next')).toBe(hourHue(getSky('daylight'), hour + 1))
     expect(root.dataset.sky).toBe('graphite')
   })
 
@@ -124,5 +127,35 @@ describe('App', () => {
     expect(screen.getByText('Nothing on the log yet.')).toBeInTheDocument()
     await new Promise((r) => setTimeout(r, 300))
     expect(localStorage.getItem(STORAGE_KEY) ?? '').not.toContain('Stretch')
+  })
+
+  it('clear all data also stops and clears the timer', async () => {
+    const user = userEvent.setup()
+    document.title = 'Hourly'
+    render(<App persist={false} />)
+    await user.click(screen.getByRole('button', { name: 'Timer, 00:00. Press to set a time' }))
+    await user.keyboard('{Control>}a{/Control}10{Enter}')
+    expect(screen.getByRole('button', { name: /^Timer, 10:00 left/ })).toBeInTheDocument()
+    expect(localStorage.getItem(TIMER_KEY)).toContain('running')
+    expect(document.title).toBe('10:00 · Hourly')
+
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    await user.click(screen.getByRole('button', { name: 'Clear all data' }))
+    await user.click(screen.getByRole('button', { name: 'Clear everything' }))
+    expect(localStorage.getItem(TIMER_KEY)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Timer, 00:00. Press to set a time' })).toBeInTheDocument()
+    expect(document.title).toBe('Hourly')
+  })
+
+  it('never lets the timer drive the clock', async () => {
+    const user = userEvent.setup()
+    render(<App persist={false} />)
+    const states = () => Array.from(document.querySelectorAll('.clock-lit-layer > .clock-lit')).map((m) => m.getAttribute('data-state'))
+    const before = states()
+    await user.click(screen.getByRole('button', { name: /^Timer/ }))
+    await user.keyboard('{Control>}a{/Control}45{Enter}')
+    expect(document.querySelector('.timer-bar')).not.toBeNull()
+    expect(document.querySelector('svg.clock .timer-bar')).toBeNull()
+    expect(states()).toEqual(before)
   })
 })

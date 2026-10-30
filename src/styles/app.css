@@ -79,6 +79,7 @@ html[data-hue-ready] {
   .shell { padding: 0 calc(44px + 12px) 32px 12px; }
   .columns { grid-template-columns: 1fr; gap: 36px; min-height: 0; padding-top: 24px; }
   .clock-wrap { width: min(100%, 320px); margin: 0 auto; }
+  .hero { padding-top: 36px; }
   .words { margin: 20px auto 0; text-align: center; max-width: none; }
   .hourword { font-size: 40px; }
   .personality { font-size: 19px; }
@@ -93,7 +94,7 @@ html[data-hue-ready] {
 
 /* ---- 3. Components ---- */
 /* Hero */
-.clock-wrap svg { position: relative; display: block; width: 100%; height: 100%; }
+.clock-wrap > svg.clock { position: relative; display: block; width: 100%; height: 100%; }
 .personality { text-wrap: balance; font-style: italic; }
 
 /* Clock. The lit colour derives from the transitioning --hour, so lit marks never get their
@@ -105,6 +106,40 @@ html[data-hue-ready] {
 .clock-hand { transform-origin: 200px 200px; }
 [data-second-hand="tick"] .clock-hand-second { transition: transform 180ms cubic-bezier(0.4, 2, 0.5, 1); }
 .clock-numeral { font-family: var(--font-sans); font-variant-numeric: tabular-nums; }
+
+/* Timer (§6, Timer). The bar is its own SVG over the clock: same 400 box, r 198 to 208, outside
+   the ring, never catching the pointer. */
+.clock-wrap .timer-bar { position: absolute; inset: 0; display: block; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 2; }
+/* The label sits above the 12: its bottom edge 6px above the bar's outer edge (r 208 is 2% of
+   the box above its top; the box is square, so 102% of its height). Above both SVGs. */
+.timer-label { position: absolute; left: 50%; bottom: calc(102% + 6px); transform: translateX(-50%); z-index: 3; display: flex; justify-content: center; }
+.timer-button, .timer-input {
+  font-family: var(--font-sans); font-size: 15px; line-height: 1; font-weight: 500;
+  letter-spacing: 0.01em; font-variant-numeric: tabular-nums;
+}
+.timer-button {
+  position: relative; display: block; padding: 4px 6px; border-radius: var(--radius-control); color: var(--slate);
+  transition: background-color var(--duration-swift) var(--ease-settle), color var(--duration-swift) var(--ease-settle);
+}
+.timer-label[data-phase="running"] .timer-button, .timer-label[data-phase="paused"] .timer-button { color: var(--ink); }
+@media (hover: hover) {
+  .timer-button:hover { background-color: var(--hour-wash); }
+}
+.timer-time { display: block; }
+/* Paused: two small lit bars beside the time, outside its box so the time stays centred. */
+.timer-cue { position: absolute; left: 100%; top: 50%; display: flex; gap: 2px; translate: 2px -50%; }
+.timer-cue i { display: block; width: 2px; height: 10px; border-radius: var(--radius-pill); background: var(--hour-fill); box-shadow: 0 0 6px var(--hour-soft); }
+/* The field: an underline only while typing, no box. */
+.timer-input {
+  display: block; width: 5.4ch; padding: 4px 0 3px; margin: 0 6px; text-align: center; color: var(--ink);
+  background: transparent; border: 0; border-bottom: 1px solid var(--hour-ink); border-radius: 0;
+}
+.timer-input:focus-visible { outline: none; }
+.timer-input[aria-invalid="true"] { color: var(--danger); border-bottom-color: var(--danger); }
+/* Room for the label above the clock where the header would otherwise meet it. */
+@media (max-height: 900px) and (min-width: 761px) {
+  .hero { padding-top: 36px; }
+}
 
 /* Quest rows (§8): the hover wash bleeds 2px / 6px past the text edge, but the rule is drawn
    by ::before inside that bleed so it lines up with the header rule and the well (critique 02 n1). */

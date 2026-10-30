@@ -17,3 +17,18 @@ if (typeof globalThis.AnimationEvent === 'undefined') {
   }
   globalThis.AnimationEvent = AnimationEventStub as unknown as typeof AnimationEvent
 }
+
+import { beforeEach } from 'vitest'
+import { FakeAudioContext, FakeNotification, fakeMatchMedia, resetFakes } from './test/fakes'
+
+// jsdom has no Web Audio, Notification or matchMedia. Minimal stubs (src/test/fakes.ts).
+Object.assign(globalThis, { AudioContext: FakeAudioContext, Notification: FakeNotification })
+if (typeof window.matchMedia !== 'function') window.matchMedia = fakeMatchMedia
+beforeEach(() => {
+  resetFakes()
+  try {
+    localStorage.clear()
+  } catch {
+    // ignore
+  }
+})

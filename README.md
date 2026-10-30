@@ -6,8 +6,9 @@ quest log: checking off a quest earns a lumen, clearing every quest in a day ear
 and lumens buy alternate clock faces (dials) and hue ramps (skies) in the Collection.
 
 Vite + React 19 + TypeScript + Tailwind v4. No backend, no login: everything lives in this
-browser's `localStorage` under the key `hourly.v2` (a versioned JSON document; "Clear all
-data" in Settings removes it).
+browser's `localStorage` under the key `hourly.v2` (a versioned JSON document). The
+countdown timer above the clock keeps its own key, `hourly.timer.v1`, so it is never part of
+the app state. "Clear all data" in Settings removes both and stops a running timer.
 
 ## Scripts
 
