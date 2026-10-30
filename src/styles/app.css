@@ -126,6 +126,18 @@ html[data-hue-ready] {
   .timer-button:hover { background-color: var(--hour-wash); }
 }
 .timer-time { display: block; }
+/* Focus on the label and the pause/play button: never the rounded 2px ring (a click or Enter
+   would otherwise leave it drawn round the time). Keyboard focus gets a quiet 1px --hour-fill
+   underline instead; after an edit started with a pointer even that stays off (data-quiet-focus,
+   TimerLabel) until the user tabs. Other buttons keep the global ring. */
+.timer-button:focus-visible, .timer-play:focus-visible { outline: none; }
+.timer-button:focus-visible:not([data-quiet-focus]) .timer-time {
+  text-decoration: underline 1px var(--hour-fill); text-underline-offset: 4px;
+}
+.timer-play:focus-visible::after {
+  content: ""; position: absolute; left: 50%; top: calc(50% + 8px); width: 8px; height: 1px;
+  translate: -50% 0; background: var(--hour-fill);
+}
 /* Paused: a small lit play triangle (8x10, the old cue's size) beside the time, outside the
    label's box so the time stays centred. The button is a 32px hit area (44px on touch) around
    it, so the triangle's left edge sits 6px past the label either way. */

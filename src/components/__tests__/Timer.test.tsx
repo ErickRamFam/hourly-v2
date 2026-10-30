@@ -226,6 +226,38 @@ describe('timer label and field', () => {
   })
 })
 
+describe('focus indicator on the label', () => {
+  it('after a pointer-started edit, Enter returns focus to the label quietly until Tab', () => {
+    setup()
+    fireEvent.click(label(), { detail: 1 })
+    fireEvent.change(field(), { target: { value: '5' } })
+    fireEvent.keyDown(field(), { key: 'Enter' })
+    expect(label()).toHaveFocus()
+    expect(label()).toHaveAttribute('data-quiet-focus')
+    press('Tab')
+    expect(label()).not.toHaveAttribute('data-quiet-focus')
+  })
+
+  it('Escape after a pointer-started edit is quiet too, and focus leaving clears it', () => {
+    setup()
+    startWith('10')
+    fireEvent.click(label(), { detail: 1 })
+    fireEvent.keyDown(field(), { key: 'Escape' })
+    expect(label()).toHaveAttribute('data-quiet-focus')
+    fireEvent.blur(label())
+    expect(label()).not.toHaveAttribute('data-quiet-focus')
+  })
+
+  it('a keyboard-started edit keeps the keyboard indicator', () => {
+    setup()
+    fireEvent.click(label(), { detail: 0 }) // Enter or Space on the button
+    fireEvent.change(field(), { target: { value: '5' } })
+    fireEvent.keyDown(field(), { key: 'Enter' })
+    expect(label()).toHaveFocus()
+    expect(label()).not.toHaveAttribute('data-quiet-focus')
+  })
+})
+
 describe('pause and play buttons', () => {
   it('one slot: pause while running, play while paused, nothing idle or with the field open', () => {
     setup()
