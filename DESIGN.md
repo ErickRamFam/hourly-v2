@@ -28,6 +28,7 @@ pixel samples of the running app (`?at=HH:MM`, 1440×900), not from flat hexes.
 | `line-strong` | `rgb(27 35 49 / .18)`     | Control borders, unchecked box, first log rule, seven-day ring |
 | `glass`       | `rgb(247 249 252 / .62)`  | Panel fill under backdrop blur |
 | `dialog-backdrop` | `rgb(27 35 49 / .32)` | Behind the confirm dialog |
+| `danger`      | `#B3261E`                 | Invalid input (timer field) only |
 
 ### Dark
 
@@ -43,6 +44,7 @@ pixel samples of the running app (`?at=HH:MM`, 1440×900), not from flat hexes.
 | `line-strong` | `rgb(232 237 245 / .16)`  | Control borders |
 | `glass`       | `rgb(22 29 46 / .60)`     | Panel fill |
 | `dialog-backdrop` | `rgb(5 8 16 / .55)`   | Behind the confirm dialog |
+| `danger`      | `#FF8A80`                 | Invalid input (timer field) only |
 
 ### Contrast, measured on the washed page (WCAG 2.x, AA = 4.5 text, 3.0 graphics)
 
@@ -79,13 +81,14 @@ Dark dialog: `0 0 0 1px rgb(232 237 245/.08), 0 2px 4px rgb(5 8 16/.4), 0 28px 6
 ### Hour-derived colors (runtime)
 
 JS sets on `<html>`: `--hour` (current stop of the equipped sky), `--hour-next` (next
-stop), and for the Graphite sky only `--hour-lit` (the Daylight stop). JS sets `--halo-x` /
+stop), and for the Graphite sky only `--hour-lit` and `--hour-lit-next` (the Daylight stops). JS sets `--halo-x` /
 `--halo-y` on the halo element (§5). Everything else derives in CSS.
 
 | Var           | Light | Dark | Used for |
 | ------------- | ----- | ---- | -------- |
 | `--hour`      | ramp hex | same | aurora, source for all below |
 | `--hour-fill` | lit-fill rule below; fallback without relative color: `color-mix(in oklab, hour 62%, ink)` (all 24 stops ≥ 3.1:1) | `oklch(from var(--hour-lit, var(--hour)) max(l, .74) c h)`; fallback `var(--hour-lit, var(--hour))` | **everything drawn as lit**: wedge, second hand, cap ring, checked box, seven-day discs, active rail dot, lumen ring, equipped dot, segmented underline |
+| `--hour-fill-next` | the lit-fill rule on `--hour-lit-next, --hour-next` | same as `--hour-fill`, next hour | the tip of the timer bar (§6, Timer) |
 | `--hour-glow` | `color-mix(in oklab, hour 26%, white)` | `hour 70%, white 6%` | halo |
 | `--hour-bloom`| `color-mix(in oklab, hour 50%, white)` | `= --hour-glow` | the two blurred copies around the lit mark |
 | `--hour-soft` | `hour 34%, transparent` | `hour 40%, transparent` | glow shadow on rail dot and underline, today ring |
@@ -333,6 +336,50 @@ wedge has a second gradient with the same stops in the blended colour. Cap grows
 `scale 1→1.12` 4s `--ease-glide` (off under reduced motion); future dots stay small. No
 numerals.
 
+### Timer
+
+A countdown that sits with the clock but never drives it: its own state, its own SVG, its
+own storage key. The clock never changes because of the timer.
+
+- **Label:** "00:00" above the 12, 15/500 tabular, `slate` idle, `ink` running or paused, in a
+  borderless button (radius 10, `--hour-wash` on hover). Centred, its bottom edge 6px above
+  the bar's outer edge (r 208, so 2% of the clock box above its top), above both SVGs. The
+  hero gets 36px of top room at ≤760 and on desktops up to 900 tall so it never meets the
+  header.
+- **Field:** pressing the label opens an inline field with the time selected; an `--hour-ink`
+  underline only while typing, no box. Accepts `MM:SS` (SS 00 to 59) or a bare number of
+  minutes, trimmed, 00:01 to 60:00. Invalid input stays open with `aria-invalid` in
+  `--danger` (light `#B3261E`, dark `#FF8A80`). Idle: `0` or `00:00` is an error and
+  clicking away discards. Enter starts. Pressing a running label pauses it and opens the
+  field; Enter with a new time resumes from that time; clicking away or Escape leaves it
+  paused; `0` on a paused timer cancels it (idle, no sound).
+- **Bar:** a separate SVG over the clock (`.timer-bar`, `inset: 0`, `overflow: visible`, no
+  pointer events), annulus r 198 to 208 in the 400 box, just outside the ring (r 186 to 189.5).
+  It starts at 12 and covers `remaining / 60:00` of the circle (60:00 is the full ring),
+  shrinking back toward 12. Colour runs from the current hour's lit colour at 12
+  (`--hour-fill`) to the next hour's at the tip (`--hour-fill-next`, the same lit-fill rule on
+  `--hour-lit-next` / `--hour-next`, so Graphite stays coloured and light-theme contrast
+  holds). Built from 4° segments that overlap by 0.5°; an SVG linear or radial gradient
+  cannot follow an arc. Follows the equipped sky.
+- **Paused:** with the field closed, the time pulses (opacity 1 → .4, 1600ms, infinite) and
+  two 2×10 `--hour-fill` bars sit beside it. The open field has priority: no cue. No cue idle
+  or running.
+- **Time up:** the beep is booked on the Web Audio clock when the timer starts or resumes (three
+  soft 880Hz pulses, 0.8s apart), so it plays on time even in a background tab; it is
+  cancelled on pause, edit, cancel and reset. At 0:00 the full ring fades in and out three
+  times over 2.4s while "Time is up" is announced, then the label returns to 00:00. If the
+  page is hidden or unfocused and notifications are allowed (asked once, on the first start),
+  a "Time is up" notification shows. Reduced motion: no fades, the ring shows still for 1s,
+  the beep still plays.
+- **Keys:** F8 and MediaPlayPause toggle pause and resume, start the Default timer when idle,
+  and resume and close an open field. Best effort: browsers often never see media keys, and
+  Chrome DevTools takes F8 while open.
+- **Persistence:** `hourly.timer.v1` holds `{ status: "running", endsAt, totalMs }` or
+  `{ status: "paused", remainingMs, totalMs }`; remaining is always read from `endsAt`, so
+  throttled background tabs never drift. A reload resumes; a timer that ended while the tab
+  was closed is cleared silently. Clear all data removes it and stops the timer. While
+  running the tab title reads "14:32 · Hourly".
+
 ## 7. Layout
 
 - **Shell:** `max-width: calc(1120px + 64px + 80px)`, centered, `padding: 0 104px 48px
@@ -467,6 +514,8 @@ with no history: outlines only.
 | slow | 600ms | hour word crossfade |
 | dawn | 1200ms | new hour joins the fill, 12:00 clear, `--hour` recolor, load |
 | hour flash | 1400ms | two soft pulses on the new current mark, `--ease-glide` |
+| timer pulse | 1600ms | paused timer label, infinite, `--ease-glide` |
+| timer done | 2400ms | three fades of the full timer ring at 0:00, `--ease-dawn` |
 | `--ease-settle` | `cubic-bezier(.25,1,.5,1)` | arrivals |
 | `--ease-glide` | `cubic-bezier(.65,0,.35,1)` | aurora drift, departures |
 | `--ease-lift` | `cubic-bezier(.34,1.4,.64,1)` | the checkbox squeeze only |
@@ -476,7 +525,8 @@ Load, the one orchestrated moment: the page renders still, then halo, lit wedge,
 fade in over 1200ms (`light-on`) and the hour word and line rise 4px over 600ms from 240ms
 (`word-in`). Nothing else enters or staggers. Reduced motion (OS or setting, via
 `[data-reduce-motion="true"]` on `<html>`): aurora frozen, no breathing, entrances 1ms,
-second hand forced to tick, hour handoff is a cut, no new-hour flash (gated in JS too).
+second hand forced to tick, hour handoff is a cut, no new-hour flash, no timer pulse or
+time-up fades (all three gated in JS too, not only in CSS).
 
 ## 10. Copy
 
