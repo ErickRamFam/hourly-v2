@@ -15,7 +15,7 @@ export type ClockProps = {
   /** True when the second hand should not sweep (reduced motion). */
   reduceMotion: boolean
   use24h: boolean
-  /** Collection preview: decorative, and the Sector preview drops numerals and minute ticks (§8). */
+  /** Collection preview: decorative; the Sector preview (no longer the default dial) drops numerals and minute ticks (§8). */
   preview?: boolean
   className?: string
 }

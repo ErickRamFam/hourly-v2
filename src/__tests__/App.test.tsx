@@ -84,9 +84,9 @@ describe('App', () => {
     expect(screen.getByRole('img', { name: '0 lumens' })).toBeInTheDocument()
     await user.click(within(panel).getByRole('button', { name: 'Equip Hairline' }))
     expect(screen.getByRole('img', { name: /^Clock showing/ })).toHaveAttribute('data-dial', 'hairline')
-    // The equipped dial moves into the live preview; Sector goes back into the list as owned.
+    // The equipped dial moves into the live preview; Lantern goes back into the list as owned.
     expect(panel.querySelector('.preview')).toHaveAttribute('data-dial', 'hairline')
-    expect(within(panel).getByRole('button', { name: 'Equip Sector' })).toBeInTheDocument()
+    expect(within(panel).getByRole('button', { name: 'Equip Lantern' })).toBeInTheDocument()
   })
 
   it('moves focus into the panel and back to the opener', async () => {

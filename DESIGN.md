@@ -268,7 +268,7 @@ mix(ink 6%, transparent), var(--shadow-panel)`. Nothing else is translucent.
 min(440px, 52vh)))`; at ≥1600w and ≥960h the 440 becomes 480; at ≤760 `min(100%, 320px)`.
 
 - **Bezel:** circle r 189.5, 1px `line`.
-- **Sections:** 12 annular arcs, outer r 186, inner r 158 (band 28), each 30° minus a 1.5°
+- **Sections** (Sector dial; the default dial is Lantern, below): 12 annular arcs, outer r 186, inner r 158 (band 28), each 30° minus a 1.5°
   gap (0.75° per side). Section i spans hour i to i+1.
 - **Unlit tint:** `fill: color-mix(in oklab, color-mix(in oklab, <lap stop> 55%,
   var(--slate)) var(--ring-tint), transparent)`. The lap is stops 0–11 before noon and
@@ -293,7 +293,7 @@ min(440px, 52vh)))`; at ≥1600w and ≥960h the 440 becomes 480; at ≤760 `min
 
 Dial variants (same glow stack: near + far bloom copies under the lit mark):
 
-**Sector** (default). As above.
+**Sector** (10 lumens). As above.
 
 **Hairline.** Ring r 172, 1px `line-strong`. Twelve hour ticks r 178→164, 1.5 `ink`;
 sixty minute ticks r 176→172, 1 `pewter` .5. No sections. Lit: a 3px arc at r 172 across
@@ -302,7 +302,7 @@ the hour (inset 1°), `--hour-fill`, round caps.
 **Rays.** Twelve radial lines r 124→184 at the section centers, 1.5, `slate` at .55,
 round caps. Lit ray 3 wide `--hour-fill`. Numerals move to r 104. No minute ticks.
 
-**Lantern.** Twelve full wedges r 0→186, no gaps, no outlines, each filled
+**Lantern** (default, free). Twelve full wedges r 0→186, no gaps, no outlines, each filled
 `color-mix(in oklab, color-mix(in oklab, <lap stop> 25%, var(--slate)) var(--lantern-tint),
 transparent)` (tint 7% light, 9% dark), so the unlit face is one soft disc, never two halves.
 Lit wedge: radial gradient `--hour-fill` 0 at center → .85 at the rim. Cap grows to r 7.
@@ -491,10 +491,11 @@ Collection: title "Collection"; balance "You have 12 lumens, 31 earned in all.";
 "Dials", "Skies"; states "Equipped", "Equip", "Buy"; price "8 lumens"; all owned "You have
 the whole collection."
 
-Dials: Sector, "Filled arcs. The lit hour is a solid wedge of light." (default); Hairline,
-"A thin ring and ticks. The lit hour is a bright arc." 6 lumens; Rays, "Twelve lines from
-the center. The lit one glows." 8 lumens; Lantern, "Soft wedges with no edges, lit from
-within." 10 lumens; Orbit, "Twelve points around the hour. The lit one swells." 12 lumens.
+Dials, in price order (the Collection list reads this way): Lantern, "Soft wedges lit from
+within. Each hour fills in as it passes." (default, free); Hairline, "A thin ring and ticks.
+Each hour adds a bright arc." 6 lumens; Rays, "Twelve lines from the center. Each hour lights
+one more." 8 lumens; Sector, "Filled arcs. Each hour fills in as it passes." 10 lumens; Orbit,
+"Twelve points around the hour. Each one swells as it passes." 12 lumens.
 
 Skies: Daylight, "Indigo to gold and back, the way a day goes." (default); Ember, "Warm all
 day, from wine to apricot to coal." 8 lumens; Tide, "Sea glass and deep water." 8 lumens;

@@ -23,7 +23,7 @@ function populated(): AppState {
       { id: 'l2', at: 1, delta: 2, reason: 'clean-day', ref: '2026-09-17' },
       { id: 'l3', at: 2, delta: -6, reason: 'unlock', ref: 'dial:hairline' },
     ],
-    owned: { dials: ['sector', 'hairline'], skies: ['daylight'] },
+    owned: { dials: ['lantern', 'sector', 'hairline'], skies: ['daylight'] },
     equipped: { dial: 'hairline', sky: 'daylight' },
     ui: { panel: 'settings' },
   }
@@ -77,8 +77,8 @@ describe('storage', () => {
     expect(state.quests).toEqual([{ id: 'a', title: 'ok', repeats: false, createdDay: '2026-09-17' }])
     expect(state.completions).toEqual({ '2026-09-17': ['a'] })
     expect(state.ledger).toEqual([{ id: 'z', at: 1, delta: -6, reason: 'unlock', ref: 'dial:orbit' }])
-    expect(state.owned).toEqual({ dials: ['sector', 'orbit'], skies: ['daylight'] })
-    expect(state.equipped).toEqual({ dial: 'sector', sky: 'daylight' })
+    expect(state.owned).toEqual({ dials: ['lantern', 'orbit'], skies: ['daylight'] })
+    expect(state.equipped).toEqual({ dial: 'lantern', sky: 'daylight' })
     expect(state.ui).toEqual({ panel: 'none' })
   })
 

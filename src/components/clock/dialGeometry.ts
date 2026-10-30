@@ -3,7 +3,7 @@
  * Every number the design director may tune lives here.
  */
 
-/** Sector ring (default dial). gapDeg is per side (1.5° total between sections). */
+/** Sector ring (also the geometry the other dials share). gapDeg is per side (1.5° total between sections). */
 export const RING = {
   rOuter: 186,
   rInner: 158,

@@ -62,7 +62,7 @@ describe('quests through the reducer', () => {
     expect(reducer(s, { type: 'addQuest', title: '   ', repeats: false, now: NOON })).toBe(s)
     expect(reducer(s, { type: 'toggleQuest', id: 'ghost', now: NOON })).toBe(s)
     expect(reducer(s, { type: 'removeQuest', id: 'ghost' })).toBe(s)
-    expect(reducer(s, { type: 'equip', kind: 'dial', id: 'sector' })).toBe(s)
+    expect(reducer(s, { type: 'equip', kind: 'dial', id: 'lantern' })).toBe(s)
     expect(reducer(s, { type: 'setPanel', panel: 'none' })).toBe(s)
   })
 })
@@ -72,16 +72,16 @@ describe('unlock', () => {
     const s = earn(initialState(), 1) // 3 lumens
     const after = reducer(s, { type: 'unlock', kind: 'dial', id: 'hairline', now: NOON }) // costs 6
     expect(after).toBe(s)
-    expect(after.owned.dials).toEqual(['sector'])
+    expect(after.owned.dials).toEqual(['lantern'])
   })
   it('spends lumens and records an unlock entry when affordable', () => {
     const s = earn(initialState(), 2) // 6 lumens
     const after = reducer(s, { type: 'unlock', kind: 'dial', id: 'hairline', now: NOON })
-    expect(after.owned.dials).toEqual(['sector', 'hairline'])
+    expect(after.owned.dials).toEqual(['lantern', 'hairline'])
     expect(selectLumens(after)).toBe(0)
     expect(selectLifetimeEarned(after)).toBe(6)
     expect(after.ledger.at(-1)).toMatchObject({ delta: -6, reason: 'unlock', ref: 'dial:hairline' })
-    expect(after.equipped.dial).toBe('sector')
+    expect(after.equipped.dial).toBe('lantern')
   })
   it('ignores unknown items and items already owned', () => {
     const s = earn(initialState(), 4) // 12 lumens
@@ -99,7 +99,7 @@ describe('equip', () => {
     expect(reducer(s, { type: 'equip', kind: 'sky', id: 'tide' })).toBe(s)
     const owned = reducer(earn(s, 3), { type: 'unlock', kind: 'sky', id: 'tide', now: NOON })
     const equipped = reducer(owned, { type: 'equip', kind: 'sky', id: 'tide' })
-    expect(equipped.equipped).toEqual({ dial: 'sector', sky: 'tide' })
+    expect(equipped.equipped).toEqual({ dial: 'lantern', sky: 'tide' })
   })
 })
 
