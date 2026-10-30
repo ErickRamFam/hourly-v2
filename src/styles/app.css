@@ -126,9 +126,21 @@ html[data-hue-ready] {
   .timer-button:hover { background-color: var(--hour-wash); }
 }
 .timer-time { display: block; }
-/* Paused: two small lit bars beside the time, outside its box so the time stays centred. */
-.timer-cue { position: absolute; left: 100%; top: 50%; display: flex; gap: 2px; translate: 6px -50%; }
-.timer-cue i { display: block; width: 2px; height: 10px; border-radius: var(--radius-pill); background: var(--hour-fill); box-shadow: 0 0 6px var(--hour-soft); }
+/* Paused: a small lit play triangle (8x10, the old cue's size) beside the time, outside the
+   label's box so the time stays centred. The button is a 32px hit area (44px on touch) around
+   it, so the triangle's left edge sits 6px past the label either way. */
+.timer-play {
+  position: absolute; left: calc(100% - 6px); top: 50%; translate: 0 -50%;
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--radius-control);
+  color: var(--hour-fill); transition: background-color var(--duration-swift) var(--ease-settle);
+}
+.timer-play svg { display: block; fill: currentColor; filter: drop-shadow(0 0 4px var(--hour-soft)); }
+@media (hover: hover) {
+  .timer-play:hover { background-color: var(--hour-wash); }
+}
+@media (pointer: coarse) {
+  .timer-play { left: calc(100% - 12px); width: 44px; height: 44px; }
+}
 /* The field: an underline only while typing, no box. */
 .timer-input {
   display: block; width: 5.4ch; padding: 4px 0 3px; margin: 0 6px; text-align: center; color: var(--ink);

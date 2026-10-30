@@ -147,10 +147,19 @@ describe('App', () => {
     expect(document.title).toBe('Hourly')
   })
 
-  it('F8 with no timer starts the Default timer setting', () => {
+  it('P with no timer starts the Default timer setting, but not while typing a quest', async () => {
     const initial = initialState()
     render(<App persist={false} initial={{ ...initial, settings: { ...initial.settings, defaultTimerSec: 300 } }} />)
-    fireEvent.keyDown(window, { key: 'F8' })
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Quest title'), 'Plan the trip{Enter}')
+    expect(screen.getByLabelText('Quest title')).toHaveValue('')
+    expect(screen.getByRole('button', { name: 'Timer, 00:00. Press to set a time' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Edit Plan the trip' }))
+    await user.keyboard('{End} plus packing{Enter}')
+    expect(screen.getByRole('checkbox', { name: 'Plan the trip plus packing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Timer, 00:00. Press to set a time' })).toBeInTheDocument()
+    ;(document.activeElement as HTMLElement).blur()
+    fireEvent.keyDown(window, { key: 'P' })
     expect(screen.getByRole('button', { name: 'Timer, 05:00 left. Press to pause and edit' })).toBeInTheDocument()
   })
 

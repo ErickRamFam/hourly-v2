@@ -347,12 +347,18 @@ own storage key. The clock never changes because of the timer.
   hero gets 36px of top room at ≤760 and on desktops up to 900 tall so it never meets the
   header.
 - **Field:** pressing the label opens an inline field with the time selected; an `--hour-ink`
-  underline only while typing, no box. Accepts `MM:SS` (SS 00 to 59) or a bare number of
-  minutes, trimmed, 00:01 to 60:00. Invalid input stays open with `aria-invalid` in
-  `--danger` (light `#B3261E`, dark `#FF8A80`). Idle: `0` or `00:00` is an error and
-  clicking away discards. Enter starts. Pressing a running label pauses it and opens the
-  field; Enter with a new time resumes from that time; clicking away or Escape leaves it
-  paused; `0` on a paused timer cancels it (idle, no sound).
+  underline only while typing, no box. Digits only (`inputmode="numeric"`, a text field, not
+  `type="number"`): letters and symbols never appear, pasted and IME text keep only 0-9, and
+  it holds at most four digits (a fifth is ignored). The colon is added for you at three or
+  four digits, with the caret at the end: `5` reads 5, `53` reads 53, `530` reads 5:30, `1500`
+  reads 15:00; Backspace takes off the last digit and the colon reflows. One or two digits are
+  minutes (`45` is 45:00); three or four are MMSS (`530` is 5:30, `6000` is 60:00). Seconds
+  00 to 59, range 00:01 to 60:00. A paused timer opens prefilled in the same form (14:32 is
+  1432). Invalid input stays open with `aria-invalid` in `--danger` (light `#B3261E`, dark
+  `#FF8A80`). Idle: all zeros is an error and clicking away discards. Enter starts. Pressing
+  a running label pauses it and opens the field; Enter with a new time resumes from that time;
+  clicking away or Escape leaves it paused; all zeros (`0`, `00`, `0000`) on a paused timer
+  cancels it (idle, no sound).
 - **Bar:** a separate SVG over the clock (`.timer-bar`, `inset: 0`, `overflow: visible`, no
   pointer events), annulus r 198 to 208 in the 400 box, just outside the ring (r 186 to 189.5).
   It starts at 12 and covers `remaining / 60:00` of the circle (60:00 is the full ring),
@@ -361,9 +367,13 @@ own storage key. The clock never changes because of the timer.
   `--hour-lit-next` / `--hour-next`, so Graphite stays coloured and light-theme contrast
   holds). Built from 4° segments that overlap by 0.5°; an SVG linear or radial gradient
   cannot follow an arc. Follows the equipped sky.
-- **Paused:** with the field closed, the time pulses (opacity 1 → .4, 1600ms, infinite) and
-  two 2×10 `--hour-fill` bars sit beside it. The open field has priority: no cue. No cue idle
-  or running.
+- **Paused:** with the field closed, the time pulses (opacity 1 → .4, 1600ms, infinite) and a
+  small play triangle (8×10, `--hour-fill`, soft `--hour-soft` glow) sits 6px past it. It is a
+  real button, "Resume timer", the Tab stop right after the time: a 32px hit area (44px on
+  coarse pointers) around the same small triangle, `--hour-wash` on hover, the usual focus
+  ring. It resumes like P and never opens the field; pressing the time still opens the field.
+  The open field has priority: no play button. None idle or running (no pause button: the
+  time pauses, and so does P).
 - **Time up:** the beep is booked on the Web Audio clock when the timer starts or resumes (three
   soft 880Hz pulses, 0.8s apart), so it plays on time even in a background tab; it is
   cancelled on pause, edit, cancel and reset. At 0:00 the full ring fades in and out three
@@ -371,9 +381,12 @@ own storage key. The clock never changes because of the timer.
   page is hidden or unfocused and notifications are allowed (asked once, on the first start),
   a "Time is up" notification shows. Reduced motion: no fades, the ring shows still for 1s,
   the beep still plays.
-- **Keys:** F8 and MediaPlayPause toggle pause and resume, start the Default timer when idle,
-  and resume and close an open field. Best effort: browsers often never see media keys, and
-  Chrome DevTools takes F8 while open.
+- **Keys:** P (either case) and MediaPlayPause toggle pause and resume, start the Default
+  timer when idle, and resume and close an open field. P is a plain key, so it works in every
+  browser; it does nothing while typing in a text control (the quest input, the quest edit
+  field, the timer field), with Ctrl, Cmd or Alt held (so print still works), or while the
+  Clear all data dialog is open. The label carries `aria-keyshortcuts="P"`. MediaPlayPause is
+  best effort: browsers often never see media keys.
 - **Persistence:** `hourly.timer.v1` holds `{ status: "running", endsAt, totalMs }` or
   `{ status: "paused", remainingMs, totalMs }`; remaining is always read from `endsAt`, so
   throttled background tabs never drift. A reload resumes; a timer that ended while the tab
@@ -459,6 +472,12 @@ in 13/500 tabular `slate`, with the rail's own 4px `--hour-fill` lit dot 6px abo
 close "×" 22px `slate` in a 28px radius-10 button. Page behind gets a scrim `mix(paper
 35%, transparent)`. Motion: `panel-in` 320ms `--ease-settle` / `panel-out` 200ms
 `--ease-glide`; mobile `sheet-in`.
+It closes four ways, all through the same exit and the same focus return to the rail button
+that opened it: the ×, Escape, the rail button again, or a click or tap anywhere outside the
+panel and the rail (the scrim lets that click through, so whatever was clicked still gets
+it). When that outside click lands on something focusable (the quest input, a checkbox, the
+timer label), focus stays there instead of returning to the rail. Clicks never close it
+while the Clear all data dialog is open.
 
 **Collection.** Balance sentence body `slate` 10px under the title. Group titles serif 19,
 margin 28 0 6, padding-top 14, `border-top: 1px line`.
@@ -491,7 +510,7 @@ first); label body `ink` left, control right.
   by one hour. The value follows Clock labels: "6 am" / "7 pm" in 12h, "6:00" / "19:00" in
   24h. Default timer steps by one minute from "1:00" to "60:00" and clamps (no wrap; at a
   limit the button stays enabled and does nothing, so focus stays). Default 30:00; it is what
-  F8 starts when no timer is set.
+  P starts when no timer is set.
 - *Clear all data:* 28px below the rows with a hairline above, a text button 15/500
   `pewter`. The tagline sits at the panel foot, serif italic 15 `slate`.
 
@@ -566,7 +585,8 @@ actions "Edit" and "Remove" (screen readers: "Edit Water the plants", "Remove Wa
 plants"); edit field "Edit quest title"; lumen float "+1"; clean-day toast "A clean day. +2 lumens."
 
 Timer: idle "00:00"; screen-reader names "Timer, 00:00. Press to set a time", "Timer, 14:32
-left. Press to pause and edit", "Timer paused, 14:32 left. Press to edit"; field "Timer, minutes
+left. Press to pause and edit", "Timer paused, 14:32 left. Press to edit"; play button
+"Resume timer"; field "Timer, minutes
 and seconds"; at the end "Time is up" (status region and system notification); tab title
 "14:32 · Hourly" while running.
 

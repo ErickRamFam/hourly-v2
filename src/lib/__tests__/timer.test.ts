@@ -4,6 +4,7 @@ import {
   TIMER_KEY,
   barFraction,
   formatTimer,
+  formatTimerDigits,
   loadTimer,
   parseTimerInput,
   pauseTimer,
@@ -12,6 +13,7 @@ import {
   sanitizeTimer,
   saveTimer,
   startTimer,
+  timerDigits,
 } from '../timer'
 import { barSegments } from '../../components/timerVisuals'
 
@@ -22,24 +24,50 @@ function memoryStorage(): StorageLike & { data: Map<string, string> } {
 
 const T0 = 1_800_000_000_000
 
-describe('parseTimerInput', () => {
+describe('parseTimerInput (digits only)', () => {
   it.each([
     ['5', 5 * 60_000],
     ['05', 5 * 60_000],
-    ['  5  ', 5 * 60_000],
-    ['5:30', 330_000],
-    ['05:30', 330_000],
-    ['00:01', 1000],
+    ['45', 45 * 60_000],
     ['60', 3_600_000],
-    ['60:00', 3_600_000],
+    ['530', 330_000],
+    ['0530', 330_000],
+    ['1500', 900_000],
+    ['6000', 3_600_000],
+    ['0001', 1000],
+    ['1432', 872_000],
   ])('%j is %i ms', (input, ms) => {
     expect(parseTimerInput(input)).toEqual({ kind: 'time', ms })
   })
-  it.each(['0', '00', '00:00', '0:00'])('%j is zero', (input) => {
+  it.each(['0', '00', '000', '0000'])('%j is zero', (input) => {
     expect(parseTimerInput(input)).toEqual({ kind: 'zero' })
   })
-  it.each(['', '   ', '60:01', '61', '5:75', '5:7', '1.5', '1:30.5', '-5', 'abc', '5m', '1:2:3', '100', ':30', '5:'])('%j is invalid', (input) => {
+  it.each(['', '6001', '61', '0075', '575', '99', '12345', '5:30', ' 5', '1.5', 'abc', '-5'])('%j is invalid', (input) => {
     expect(parseTimerInput(input)).toEqual({ kind: 'invalid' })
+  })
+})
+
+describe('timer field digits', () => {
+  it.each([
+    ['abc', ''],
+    ['5a3', '53'],
+    ['1e2', '12'],
+    ['-', ''],
+    ['.', ''],
+    ['12abc34567', '1234'],
+    ['15001', '1500'],
+    ['14:32', '1432'],
+  ])('%j keeps %j', (input, digits) => {
+    expect(timerDigits(input)).toBe(digits)
+  })
+  it.each([
+    ['', ''],
+    ['5', '5'],
+    ['53', '53'],
+    ['530', '5:30'],
+    ['1500', '15:00'],
+  ])('%j shows as %j', (digits, shown) => {
+    expect(formatTimerDigits(digits)).toBe(shown)
   })
 })
 

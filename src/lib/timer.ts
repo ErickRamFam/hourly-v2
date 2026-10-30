@@ -18,27 +18,38 @@ export type TimerStored = TimerRunning | TimerPaused
 
 export type ParsedTimer = { kind: 'time'; ms: number } | { kind: 'zero' } | { kind: 'invalid' }
 
+/** At most four digits: MMSS. */
+export const TIMER_MAX_DIGITS = 4
+
 /**
- * Accepts `MM:SS` (SS 00 to 59) or a bare whole number of minutes, trimmed. Valid range 00:01
- * to 60:00. `0`, `00` and `00:00` are `zero` (an error while idle, a cancel while paused).
+ * Parses what the timer field holds: 1 to 4 digits, nothing else. One or two digits are
+ * minutes (`5` is 5:00, `45` is 45:00); three or four are MMSS (`530` is 5:30, `1500` is
+ * 15:00). Seconds must be 00 to 59 and the valid range is 00:01 to 60:00. All zeros (`0`,
+ * `00`, `0000`) is `zero`: an error while idle, a cancel while paused.
  */
-export function parseTimerInput(raw: string): ParsedTimer {
-  const text = raw.trim()
+export function parseTimerInput(digits: string): ParsedTimer {
+  if (!/^\d{1,4}$/.test(digits)) return { kind: 'invalid' }
   let seconds: number
-  const clock = /^(\d{1,2}):(\d{2})$/.exec(text)
-  if (clock) {
-    const m = Number(clock[1])
-    const s = Number(clock[2])
-    if (s > 59) return { kind: 'invalid' }
-    seconds = m * 60 + s
-  } else if (/^\d{1,2}$/.test(text)) {
-    seconds = Number(text) * 60
+  if (digits.length <= 2) {
+    seconds = Number(digits) * 60
   } else {
-    return { kind: 'invalid' }
+    const s = Number(digits.slice(-2))
+    if (s > 59) return { kind: 'invalid' }
+    seconds = Number(digits.slice(0, -2)) * 60 + s
   }
   if (seconds === 0) return { kind: 'zero' }
   const ms = seconds * 1000
   return ms < TIMER_MIN_MS || ms > TIMER_MAX_MS ? { kind: 'invalid' } : { kind: 'time', ms }
+}
+
+/** Keeps only 0-9 from typed, pasted or IME text, capped at the first four digits. */
+export function timerDigits(text: string): string {
+  return text.replace(/\D/g, '').slice(0, TIMER_MAX_DIGITS)
+}
+
+/** How the field shows its digits: as typed, with the colon added at 3 or 4 digits (`530` reads 5:30). */
+export function formatTimerDigits(digits: string): string {
+  return digits.length <= 2 ? digits : `${digits.slice(0, -2)}:${digits.slice(-2)}`
 }
 
 /** Whole seconds shown for `ms` remaining: rounded up, so 00:00 only appears at the end. */

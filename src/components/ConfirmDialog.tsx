@@ -33,7 +33,8 @@ export function ConfirmDialog({ title, body, confirmLabel, cancelLabel = 'Cancel
   }, [onCancel])
 
   return createPortal(
-    <div className="dialog-in fixed inset-0 z-40 grid place-items-center p-4">
+    // data-modal: portalled outside the rail panel; Rail's outside-click close skips it while open.
+    <div className="dialog-in fixed inset-0 z-40 grid place-items-center p-4" data-modal="">
       <div className="fixed inset-0 bg-[var(--dialog-backdrop)]" onClick={onCancel} aria-hidden="true" />
       <div
         className="dialog relative w-[360px] max-w-[calc(100vw-32px)] rounded-dialog bg-paper px-6 pt-6 pb-5 shadow-dialog"

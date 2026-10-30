@@ -22,7 +22,7 @@ export const DONE_REDUCED_MS = 1000
 export const TIME_UP = 'Time is up'
 
 export type TimerOptions = {
-  /** Length F8 starts with no timer (Settings → Default timer). */
+  /** Length the P key starts with no timer (Settings → Default timer). */
   defaultMs: number
   reduceMotion: boolean
   /** Injected in tests. */
@@ -41,13 +41,23 @@ export type Timer = {
   closeEdit(): void
   /** Enter. True when the input was accepted (the field closes); false keeps it open as invalid. */
   submit(text: string): boolean
-  /** F8 / MediaPlayPause. */
+  /** P / MediaPlayPause. */
   toggle(): void
+  /** The paused cue's play button: resumes, from the user gesture so the beep can be booked. */
+  resume(): void
   /** Clear all data: cancels sound, timeouts and the notification, clears the key, restores the title. */
   reset(): void
 }
 
 type NotificationCtor = typeof Notification | undefined
+
+/** Inputs, textareas, selects and contenteditable: where P is a letter, not a shortcut. */
+function isTextControl(el: EventTarget | null): boolean {
+  if (!(el instanceof HTMLElement)) return false
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) return true
+  // isContentEditable is missing in some environments (jsdom); the attribute check covers them.
+  return el.isContentEditable === true || el.closest('[contenteditable=""], [contenteditable="true"]') !== null
+}
 
 function notificationApi(): NotificationCtor {
   return typeof Notification === 'undefined' ? undefined : Notification
@@ -194,6 +204,9 @@ export function useTimer({ defaultMs, reduceMotion, storage = defaultTimerStorag
       else if (t.status === 'running') pause()
       else resume()
     },
+    resume() {
+      resume()
+    },
     reset() {
       beeper.cancel()
       closeNotification()
@@ -268,15 +281,19 @@ export function useTimer({ defaultMs, reduceMotion, storage = defaultTimerStorag
     }
   }, [running, beeper])
 
-  // F8 and MediaPlayPause toggle pause/resume. Best effort: browsers often never receive media
-  // keys (the OS or another player takes them), F8 is the play/pause media key on Mac
-  // keyboards (it arrives as F8 only with fn or "standard function keys"), and Chrome DevTools
-  // uses F8 for its own pause while open.
+  // P (any case) and MediaPlayPause toggle pause and resume, start the Default timer when idle,
+  // and resume and close an open field. P is a plain key, so it works in every browser; it is
+  // ignored while typing in a text control, with Ctrl, Cmd or Alt held (Cmd+P / Ctrl+P still
+  // print) and while the Clear all data dialog is open. MediaPlayPause is best effort: browsers
+  // often never see media keys because the OS or another player takes them.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'F8' && e.key !== 'MediaPlayPause') return
-      e.preventDefault()
+      const isP = e.key.length === 1 && e.key.toLowerCase() === 'p'
+      if (!isP && e.key !== 'MediaPlayPause') return
+      if (isP && (e.ctrlKey || e.metaKey || e.altKey || isTextControl(e.target) || isTextControl(document.activeElement))) return
+      if (isP && document.querySelector('[data-modal]')) return
       if (e.repeat) return
+      e.preventDefault()
       apiRef.current.toggle()
     }
     window.addEventListener('keydown', onKey)
