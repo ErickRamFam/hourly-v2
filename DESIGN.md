@@ -230,7 +230,8 @@ are unused in revision 2: no dial tiles, no segmented thumb.
 Lines: 1px, `border-top` or `box-shadow: inset 0 0 0 1px`; never a full border on a filled
 box; never 2px except the focus ring and the segment underline.
 
-Focus: `outline: 2px solid var(--hour-ink); outline-offset: 3px`, on `:focus-visible` only.
+Focus: `outline: 2px solid var(--hour-ink); outline-offset: 3px`, on `:focus-visible` only. The timer label and its pause/play
+button are the one exception (§6, Timer): a 1px underline instead.
 No `border-radius` in the rule: the outline follows each element's own radius (drawn on the fourth row's checkbox in `light-14.html`).
 
 ## 5. Light recipes (exact CSS in surfaces.css)
@@ -377,7 +378,12 @@ own storage key. The clock never changes because of the timer.
   field is open (the field has priority). Both glyphs are 8×10 in `--hour-fill` with a soft
   `--hour-soft` glow, 6px past the time. It is one element that swaps, so focus stays on it
   across a toggle: a 32px hit area (44px on coarse pointers), `--hour-wash` on hover, the
-  usual focus ring, the Tab stop right after the time. Pause stops at the current remaining
+  Tab stop right after the time.
+- **Focus (label and slot):** never the 2px ring (§4), which read as a box round the time
+  after a click or Enter. Keyboard focus is a 1px `--hour-fill` underline: under the time
+  (offset 4px) on the label, an 8px bar under the glyph on the slot. Mouse and touch show
+  nothing. After an edit started with a pointer, the focus that returns to the label on Enter
+  or Escape stays quiet until the user presses Tab. Every other control keeps the ring. Pause stops at the current remaining
   time (beep cancelled, title restored); play resumes and books the beep again from the click.
   Neither opens the field; pressing the time does. P and MediaPlayPause do the same as the
   slot.

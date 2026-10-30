@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent } from 'react'
 import { formatTimer, formatTimerDigits, timerDigits } from '../lib/timer'
 import { TIME_UP, type Timer } from '../state/useTimer'
 import { timerLabelName } from './timerVisuals'
@@ -20,7 +20,24 @@ export function TimerLabel({ timer, reduceMotion }: { timer: Timer; reduceMotion
   const refocus = useRef(false)
   /** Set by typing, so the caret lands after the last digit once the colon reflows. */
   const caretToEnd = useRef(false)
+  /** The field was opened with a pointer (mouse, touch, pen), not the keyboard. */
+  const openedByPointer = useRef(false)
+  /**
+   * Focus came back to the label at the end of a pointer-started edit. Enter is a key press, so
+   * the browser would treat that focus as keyboard focus and draw the indicator; this keeps it
+   * quiet until the user actually uses the keyboard to move (Tab) or focus leaves.
+   */
+  const [quiet, setQuiet] = useState(false)
   const { phase, editing } = timer
+
+  useEffect(() => {
+    if (!quiet) return
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Tab') setQuiet(false)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [quiet])
 
   useLayoutEffect(() => {
     const el = inputRef.current
@@ -36,11 +53,15 @@ export function TimerLabel({ timer, reduceMotion }: { timer: Timer; reduceMotion
       inputRef.current?.select()
     } else if (refocus.current) {
       refocus.current = false
+      if (openedByPointer.current) setQuiet(true)
       buttonRef.current?.focus()
     }
   }, [editing])
 
-  const open = () => {
+  const open = (e: MouseEvent<HTMLButtonElement>) => {
+    // detail is the click count: 0 when Enter or Space pressed the button.
+    openedByPointer.current = e.detail > 0
+    setQuiet(false)
     // Prefilled in the same digit format: a paused 14:32 is 1432, idle is 0000.
     setDigits(timerDigits(phase === 'idle' || phase === 'done' ? '00:00' : formatTimer(timer.remainingMs)))
     setInvalid(false)
@@ -106,6 +127,8 @@ export function TimerLabel({ timer, reduceMotion }: { timer: Timer; reduceMotion
             ref={buttonRef}
             type="button"
             className="timer-button press"
+            data-quiet-focus={quiet || undefined}
+            onBlur={() => setQuiet(false)}
             aria-label={timerLabelName(timer)}
             aria-keyshortcuts="P"
             onClick={open}
