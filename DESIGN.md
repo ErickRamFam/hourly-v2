@@ -355,10 +355,15 @@ own storage key. The clock never changes because of the timer.
   minutes (`45` is 45:00); three or four are MMSS (`530` is 5:30, `6000` is 60:00). Seconds
   00 to 59, range 00:01 to 60:00. A paused timer opens prefilled in the same form (14:32 is
   1432). Invalid input stays open with `aria-invalid` in `--danger` (light `#B3261E`, dark
-  `#FF8A80`). Idle: all zeros is an error and clicking away discards. Enter starts. Pressing
-  a running label pauses it and opens the field; Enter with a new time resumes from that time;
-  clicking away or Escape leaves it paused; all zeros (`0`, `00`, `0000`) on a paused timer
-  cancels it (idle, no sound).
+  `#FF8A80`). Idle: all zeros is an error and clicking away discards. Enter starts.
+  Opening the field on an active timer freezes it at its remaining time while the field is
+  open: the beep is cancelled, the tab title holds the frozen time, the bar stops, and if the
+  time would have run out meanwhile nothing happens. Closing without a new time (click away,
+  blur or Escape) restores what it was doing when the field opened: a running timer resumes
+  from the exact frozen time (beep booked again from that time, title and bar move again); a
+  paused one stays paused. Enter with a valid new time always runs from that time, whether it
+  was running or paused. All zeros (`0`, `00`, `0000`) cancels an active timer (idle, no
+  sound).
 - **Bar:** a separate SVG over the clock (`.timer-bar`, `inset: 0`, `overflow: visible`, no
   pointer events), annulus r 198 to 208 in the 400 box, just outside the ring (r 186 to 189.5).
   It starts at 12 and covers `remaining / 60:00` of the circle (60:00 is the full ring),
@@ -367,13 +372,17 @@ own storage key. The clock never changes because of the timer.
   `--hour-lit-next` / `--hour-next`, so Graphite stays coloured and light-theme contrast
   holds). Built from 4° segments that overlap by 0.5°; an SVG linear or radial gradient
   cannot follow an arc. Follows the equipped sky.
-- **Paused:** with the field closed, the time pulses (opacity 1 → .4, 1600ms, infinite) and a
-  small play triangle (8×10, `--hour-fill`, soft `--hour-soft` glow) sits 6px past it. It is a
-  real button, "Resume timer", the Tab stop right after the time: a 32px hit area (44px on
-  coarse pointers) around the same small triangle, `--hour-wash` on hover, the usual focus
-  ring. It resumes like P and never opens the field; pressing the time still opens the field.
-  The open field has priority: no play button. None idle or running (no pause button: the
-  time pauses, and so does P).
+- **Toggle slot:** beside the time sits one small button: two 2.1×8.5 bars ("Pause timer")
+  while running, a play triangle ("Resume timer") while paused, nothing idle or while the
+  field is open (the field has priority). Both glyphs are 8×10 in `--hour-fill` with a soft
+  `--hour-soft` glow, 6px past the time. It is one element that swaps, so focus stays on it
+  across a toggle: a 32px hit area (44px on coarse pointers), `--hour-wash` on hover, the
+  usual focus ring, the Tab stop right after the time. Pause stops at the current remaining
+  time (beep cancelled, title restored); play resumes and books the beep again from the click.
+  Neither opens the field; pressing the time does. P and MediaPlayPause do the same as the
+  slot.
+- **Paused:** with the field closed, the time pulses (opacity 1 → .4, 1600ms, infinite) and the
+  slot shows play. No pulse while running.
 - **Time up:** the beep is booked on the Web Audio clock when the timer starts or resumes (three
   soft 880Hz pulses, 0.8s apart), so it plays on time even in a background tab; it is
   cancelled on pause, edit, cancel and reset. At 0:00 the full ring fades in and out three
@@ -585,7 +594,7 @@ actions "Edit" and "Remove" (screen readers: "Edit Water the plants", "Remove Wa
 plants"); edit field "Edit quest title"; lumen float "+1"; clean-day toast "A clean day. +2 lumens."
 
 Timer: idle "00:00"; screen-reader names "Timer, 00:00. Press to set a time", "Timer, 14:32
-left. Press to pause and edit", "Timer paused, 14:32 left. Press to edit"; play button
+left. Press to edit", "Timer paused, 14:32 left. Press to edit"; toggle slot "Pause timer" /
 "Resume timer"; field "Timer, minutes
 and seconds"; at the end "Time is up" (status region and system notification); tab title
 "14:32 · Hourly" while running.

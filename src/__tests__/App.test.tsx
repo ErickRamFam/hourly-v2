@@ -160,7 +160,7 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Timer, 00:00. Press to set a time' })).toBeInTheDocument()
     ;(document.activeElement as HTMLElement).blur()
     fireEvent.keyDown(window, { key: 'P' })
-    expect(screen.getByRole('button', { name: 'Timer, 05:00 left. Press to pause and edit' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Timer, 05:00 left. Press to edit' })).toBeInTheDocument()
   })
 
   it('never lets the timer drive the clock', async () => {

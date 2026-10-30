@@ -41,6 +41,7 @@ const field = () => screen.getByRole<HTMLInputElement>('textbox', { name: 'Timer
 const bar = () => document.querySelector('.timer-bar')
 const status = () => document.querySelector('.timer-label [role="status"]')!
 const play = () => screen.queryByRole('button', { name: 'Resume timer' })
+const pauseButton = () => screen.queryByRole('button', { name: 'Pause timer' })
 const advance = (ms: number) => act(() => vi.advanceTimersByTime(ms))
 const press = (key: string, init: KeyboardEventInit = {}) => {
   const e = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init })
@@ -98,7 +99,7 @@ describe('timer label and field', () => {
     startWith(' 5 ')
     expect(screen.queryByRole('textbox')).toBeNull()
     expect(label()).toHaveFocus()
-    expect(label()).toHaveAccessibleName('Timer, 05:00 left. Press to pause and edit')
+    expect(label()).toHaveAccessibleName('Timer, 05:00 left. Press to edit')
     expect(JSON.parse(storage.data.get(TIMER_KEY)!)).toEqual({ status: 'running', endsAt: T0 + 300_000, totalMs: 300_000 })
     expect(bar()).toHaveAttribute('data-sweep', '30')
     advance(1000)
@@ -108,80 +109,94 @@ describe('timer label and field', () => {
     expect(bar()).toHaveAttribute('data-sweep', '24')
   })
 
-  it('pressing while running pauses and opens the field; Escape keeps it paused and stays in the field', () => {
+  it('opening the field freezes a running timer: no ticking, no beep, title held, no buttons', () => {
+    document.title = 'Hourly'
+    setup()
+    startWith('10')
+    advance(3000)
+    fireEvent.click(label())
+    expect(field()).toHaveValue('09:57')
+    expect(liveBeeps()).toHaveLength(0)
+    expect(play()).toBeNull()
+    expect(pauseButton()).toBeNull()
+    expect(document.title).toBe('09:57 · Hourly')
+    // Longer than what was left: frozen, so nothing ends and nothing sounds.
+    advance(700_000)
+    expect(api.phase).toBe('paused')
+    expect(field()).toBeInTheDocument()
+    expect(document.title).toBe('09:57 · Hourly')
+    expect(status()).toHaveTextContent('')
+    expect(allBeeps().filter((o) => !o.cancelled)).toHaveLength(0)
+  })
+
+  it('clicking away from a field opened on a running timer resumes from the frozen time', () => {
+    setup()
+    startWith('10')
+    advance(3000)
+    fireEvent.click(label())
+    advance(60_000)
+    fireEvent.change(field(), { target: { value: '3' } })
+    FakeAudioContext.instances[0].currentTime = 63
+    fireEvent.blur(field())
+    expect(api.phase).toBe('running')
+    expect(label()).toHaveTextContent('09:57')
+    expect(JSON.parse(storage.data.get(TIMER_KEY)!)).toMatchObject({ status: 'running', endsAt: T0 + 63_000 + 597_000 })
+    // Booked again from the frozen remaining time, on the audio clock.
+    expect(liveBeeps().map((o) => o.startAt)).toEqual([63 + 597])
+    expect(bar()).toHaveAttribute('data-sweep', '59.7')
+    advance(1000)
+    expect(label()).toHaveTextContent('09:56')
+  })
+
+  it('Escape restores the same way, and stays inside the field', () => {
     setup()
     startWith('10')
     advance(3000)
     const onDocKey = vi.fn()
     document.addEventListener('keydown', onDocKey)
     fireEvent.click(label())
-    expect(api.phase).toBe('paused')
-    expect(field()).toHaveValue('09:57')
-    expect(play()).toBeNull() // the field has priority
-    fireEvent.keyDown(field(), { key: 'Escape' })
-    expect(onDocKey).not.toHaveBeenCalled()
-    document.removeEventListener('keydown', onDocKey)
-    expect(screen.queryByRole('textbox')).toBeNull()
-    expect(label()).toHaveAccessibleName('Timer paused, 09:57 left. Press to edit')
     advance(5000)
-    expect(label()).toHaveTextContent('09:57')
-    expect(JSON.parse(storage.data.get(TIMER_KEY)!)).toMatchObject({ status: 'paused', remainingMs: 597_000 })
-  })
-
-  it('paused cue: pulse and a play button only while paused with the field closed', () => {
-    setup()
-    expect(play()).toBeNull()
-    startWith('10')
-    expect(play()).toBeNull()
-    expect(document.querySelector('.timer-pulse')).toBeNull()
-    fireEvent.click(label())
-    fireEvent.blur(field())
-    expect(api.phase).toBe('paused')
-    expect(play()).toBeInTheDocument()
-    expect(document.querySelector('.timer-pulse')).not.toBeNull()
-    fireEvent.click(label())
-    expect(play()).toBeNull()
-  })
-
-  it('the play button resumes without opening the field and books the beep again', () => {
-    setup()
-    startWith('10')
-    advance(4000)
-    fireEvent.click(label())
+    FakeAudioContext.instances[0].currentTime = 8
     fireEvent.keyDown(field(), { key: 'Escape' })
-    expect(liveBeeps()).toHaveLength(0)
-    FakeAudioContext.instances[0].currentTime = 4
-    fireEvent.click(play()!)
-    expect(api.phase).toBe('running')
+    document.removeEventListener('keydown', onDocKey)
+    expect(onDocKey).not.toHaveBeenCalled()
     expect(screen.queryByRole('textbox')).toBeNull()
-    expect(play()).toBeNull()
-    expect(label()).toHaveFocus()
-    expect(liveBeeps().map((o) => o.startAt)).toEqual([600])
+    expect(api.phase).toBe('running')
+    expect(label()).toHaveAccessibleName('Timer, 09:57 left. Press to edit')
+    expect(liveBeeps().map((o) => o.startAt)).toEqual([8 + 597])
   })
 
-  it('the play button is the Tab stop right after the time, and the label announces P', async () => {
+  it('Enter with a new time on a running timer runs from the new time', () => {
     setup()
     startWith('10')
+    advance(3000)
     fireEvent.click(label())
-    fireEvent.keyDown(field(), { key: 'Escape' })
-    expect(label()).toHaveAttribute('aria-keyshortcuts', 'P')
-    const buttons = Array.from(document.querySelectorAll('.timer-label button'))
-    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Timer paused, 10:00 left. Press to edit', 'Resume timer'])
+    type('2:00')
+    expect(api.phase).toBe('running')
+    expect(label()).toHaveTextContent('02:00')
+    expect(bar()).toHaveAttribute('data-sweep', '12')
+    expect(liveBeeps()).toHaveLength(1)
   })
 
-  it('clicking away from a paused field keeps the original remaining time', () => {
+  it('a field opened on a paused timer stays paused when it closes without a new time', () => {
     setup()
     startWith('10')
+    fireEvent.click(pauseButton()!)
     fireEvent.click(label())
     fireEvent.change(field(), { target: { value: '3' } })
     fireEvent.blur(field())
     expect(api.phase).toBe('paused')
     expect(label()).toHaveTextContent('10:00')
+    expect(liveBeeps()).toHaveLength(0)
+    fireEvent.click(label())
+    fireEvent.keyDown(field(), { key: 'Escape' })
+    expect(api.phase).toBe('paused')
   })
 
   it('a new time on a paused timer resumes from it and redraws the bar', () => {
     setup()
     startWith('10')
+    press('p')
     fireEvent.click(label())
     type('2:00')
     expect(api.phase).toBe('running')
@@ -191,7 +206,7 @@ describe('timer label and field', () => {
     expect(liveBeeps()[0].startAt).toBe(120)
   })
 
-  it('0 on a paused timer cancels it with no beep', () => {
+  it('0 cancels an active timer with no beep, from running or paused', () => {
     setup()
     startWith('10')
     fireEvent.click(label())
@@ -200,8 +215,87 @@ describe('timer label and field', () => {
     expect(label()).toHaveTextContent('00:00')
     expect(liveBeeps()).toHaveLength(0)
     expect(storage.data.has(TIMER_KEY)).toBe(false)
+    startWith('10')
+    press('p')
+    fireEvent.click(label())
+    type('0000')
+    expect(api.phase).toBe('idle')
     advance(700_000)
     expect(status()).toHaveTextContent('')
+    expect(liveBeeps()).toHaveLength(0)
+  })
+})
+
+describe('pause and play buttons', () => {
+  it('one slot: pause while running, play while paused, nothing idle or with the field open', () => {
+    setup()
+    expect(pauseButton()).toBeNull()
+    expect(play()).toBeNull()
+    startWith('10')
+    expect(pauseButton()).toBeInTheDocument()
+    expect(play()).toBeNull()
+    expect(document.querySelector('.timer-pulse')).toBeNull()
+    fireEvent.click(pauseButton()!)
+    expect(play()).toBeInTheDocument()
+    expect(pauseButton()).toBeNull()
+    expect(document.querySelector('.timer-pulse')).not.toBeNull()
+    fireEvent.click(label())
+    expect(play()).toBeNull()
+    expect(pauseButton()).toBeNull()
+  })
+
+  it('pause pauses at the current time without opening the field, and keeps focus on the slot', () => {
+    document.title = 'Hourly'
+    setup()
+    startWith('10')
+    advance(4000)
+    const button = pauseButton()!
+    button.focus()
+    fireEvent.click(button)
+    expect(api.phase).toBe('paused')
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(label()).toHaveTextContent('09:56')
+    expect(liveBeeps()).toHaveLength(0)
+    expect(document.title).toBe('Hourly')
+    expect(play()).toBe(button) // the same element, so focus stays
+    expect(play()).toHaveFocus()
+    advance(5000)
+    expect(label()).toHaveTextContent('09:56')
+  })
+
+  it('play resumes without opening the field and books the beep again from the gesture', () => {
+    setup()
+    startWith('10')
+    advance(4000)
+    fireEvent.click(pauseButton()!)
+    FakeAudioContext.instances[0].currentTime = 4
+    fireEvent.click(play()!)
+    expect(api.phase).toBe('running')
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(pauseButton()).toBeInTheDocument()
+    expect(liveBeeps().map((o) => o.startAt)).toEqual([600])
+  })
+
+  it('P and MediaPlayPause do what the buttons do', () => {
+    setup()
+    startWith('10')
+    press('p')
+    expect(play()).toBeInTheDocument()
+    press('MediaPlayPause')
+    expect(pauseButton()).toBeInTheDocument()
+    press('P')
+    expect(api.phase).toBe('paused')
+    expect(screen.queryByRole('textbox')).toBeNull()
+  })
+
+  it('names: the slot sits right after the time, and the label announces P', () => {
+    setup()
+    startWith('10')
+    expect(label()).toHaveAttribute('aria-keyshortcuts', 'P')
+    const names = () => Array.from(document.querySelectorAll('.timer-label button')).map((b) => b.getAttribute('aria-label'))
+    expect(names()).toEqual(['Timer, 10:00 left. Press to edit', 'Pause timer'])
+    press('p')
+    expect(names()).toEqual(['Timer paused, 10:00 left. Press to edit', 'Resume timer'])
   })
 })
 
@@ -345,8 +439,7 @@ describe('time up', () => {
   it('with reduced motion: no fades or pulse, a brief static ring, still the beep', () => {
     setup({ reduceMotion: true })
     startWith('10')
-    fireEvent.click(label())
-    fireEvent.blur(field())
+    press('p')
     expect(play()).not.toBeNull()
     expect(document.querySelector('.timer-pulse')).toBeNull()
     fireEvent.click(label())
@@ -489,9 +582,8 @@ describe('sound scheduling', () => {
     expect(FakeAudioContext.instances).toHaveLength(1)
     expect(liveBeeps().map((o) => o.startAt)).toEqual([600])
     advance(100_000)
-    fireEvent.click(label()) // pause
+    fireEvent.click(pauseButton()!)
     expect(liveBeeps()).toHaveLength(0)
-    fireEvent.blur(field())
     FakeAudioContext.instances[0].currentTime = 100
     press('p') // resume
     expect(liveBeeps().map((o) => o.startAt)).toEqual([600])
@@ -561,11 +653,15 @@ describe('tab title', () => {
     expect(document.title).toBe('14:32 · Hourly test')
     advance(1000)
     expect(document.title).toBe('14:31 · Hourly test')
-    fireEvent.click(label())
+    press('p')
     expect(document.title).toBe('Hourly test')
-    fireEvent.keyDown(field(), { key: 'Escape' })
     press('p')
     expect(document.title).toBe('14:31 · Hourly test')
+    fireEvent.click(label())
+    type('0')
+    expect(document.title).toBe('Hourly test')
+    startWith('5')
+    expect(document.title).toBe('05:00 · Hourly test')
     unmount()
     expect(document.title).toBe('Hourly test')
   })

@@ -35,15 +35,21 @@ export type Timer = {
   remainingMs: number
   /** True while the inline field is open. */
   editing: boolean
-  /** Label click: pauses a running timer and opens the field. */
+  /** Label click: opens the field, freezing a running countdown where it is. */
   openEdit(): void
-  /** Escape or blur: closes the field; a paused timer stays paused, idle input is discarded. */
+  /**
+   * Escape or blur, no new time: closes the field and restores what the timer was doing when it
+   * opened (a frozen running timer resumes from the frozen time; a paused one stays paused; idle
+   * input is discarded).
+   */
   closeEdit(): void
   /** Enter. True when the input was accepted (the field closes); false keeps it open as invalid. */
   submit(text: string): boolean
   /** P / MediaPlayPause. */
   toggle(): void
-  /** The paused cue's play button: resumes, from the user gesture so the beep can be booked. */
+  /** The pause button: pauses at the current remaining time and cancels the beep. */
+  pause(): void
+  /** The play button: resumes, from the user gesture so the beep can be booked. */
   resume(): void
   /** Clear all data: cancels sound, timeouts and the notification, clears the key, restores the title. */
   reset(): void
@@ -73,6 +79,12 @@ export function useTimer({ defaultMs, reduceMotion, storage = defaultTimerStorag
   const [now, setNow] = useState(() => Date.now())
   const [editing, setEditing] = useState(false)
   const [done, setDone] = useState(false)
+  /**
+   * True while the field is open on a timer that was running when it opened: it is frozen (stored
+   * as paused, beep cancelled) and resumes when the field closes without a new time.
+   */
+  const [frozen, setFrozenState] = useState(false)
+  const frozenRef = useRef(false)
   const timerRef = useRef(timer)
   const editingRef = useRef(editing)
   const storageRef = useRef(storage)
@@ -94,6 +106,10 @@ export function useTimer({ defaultMs, reduceMotion, storage = defaultTimerStorag
   const setEdit = (on: boolean) => {
     editingRef.current = on
     setEditing(on)
+  }
+  const setFrozen = (on: boolean) => {
+    frozenRef.current = on
+    setFrozenState(on)
   }
 
   /** Inside the gesture that first starts a timer: ask once whether we may notify. */
@@ -137,6 +153,7 @@ export function useTimer({ defaultMs, reduceMotion, storage = defaultTimerStorag
   // The beep was booked on the audio clock at start, so finishing never plays a sound.
   const finish = () => {
     commit(null)
+    setFrozen(false)
     setEdit(false)
     setDone(true)
     notify()
@@ -174,22 +191,33 @@ export function useTimer({ defaultMs, reduceMotion, storage = defaultTimerStorag
     remainingMs: remainingMs(timer, now),
     editing,
     openEdit() {
+      if (editingRef.current) return
+      // Remember what to restore on a close without a new time, then freeze: no beep, no ticking.
+      setFrozen(timerRef.current?.status === 'running')
       pause()
       setDone(false)
       setEdit(true)
     },
     closeEdit() {
+      if (!editingRef.current) return
+      const wasRunning = frozenRef.current
+      setFrozen(false)
       setEdit(false)
+      // From the exact frozen remaining time; the beep is booked again from this gesture.
+      if (wasRunning) resume()
     },
     submit(text) {
       const parsed = parseTimerInput(text)
       if (parsed.kind === 'time') {
+        // A new time always runs, whether it was running or paused before.
+        setFrozen(false)
         start(parsed.ms)
         setEdit(false)
         return true
       }
       if (parsed.kind === 'zero' && timerRef.current?.status === 'paused') {
-        // Cancel: back to idle, no beep.
+        // Cancel an active (frozen or paused) timer: back to idle, no beep.
+        setFrozen(false)
         beeper.cancel()
         commit(null)
         setEdit(false)
@@ -199,10 +227,16 @@ export function useTimer({ defaultMs, reduceMotion, storage = defaultTimerStorag
     },
     toggle() {
       const t = timerRef.current
-      if (editingRef.current) setEdit(false)
+      if (editingRef.current) {
+        setFrozen(false)
+        setEdit(false)
+      }
       if (!t) start(defaultRef.current)
       else if (t.status === 'running') pause()
       else resume()
+    },
+    pause() {
+      pause()
     },
     resume() {
       resume()
@@ -210,6 +244,7 @@ export function useTimer({ defaultMs, reduceMotion, storage = defaultTimerStorag
     reset() {
       beeper.cancel()
       closeNotification()
+      setFrozen(false)
       setEdit(false)
       setDone(false)
       commit(null)
@@ -300,10 +335,11 @@ export function useTimer({ defaultMs, reduceMotion, storage = defaultTimerStorag
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // Tab title: the countdown while running, the original title otherwise. Background tabs may
-  // throttle these updates to about once a minute.
+  // Tab title: the countdown while running (held still at the frozen time while the field is
+  // open on it), the original title otherwise. Background tabs may throttle these updates to
+  // about once a minute.
   const originalTitle = useRef<string | null>(null)
-  const label = running ? formatTimer(remainingMs(timer, now)) : null
+  const label = running || (frozen && editing) ? formatTimer(remainingMs(timer, now)) : null
   useEffect(() => {
     if (originalTitle.current === null) originalTitle.current = document.title
     const base = originalTitle.current
