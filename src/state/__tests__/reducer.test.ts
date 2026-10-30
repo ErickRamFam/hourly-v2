@@ -108,6 +108,18 @@ describe('settings and ui', () => {
     const s = run([{ type: 'updateSettings', patch: { themeOverride: 'dark', dayStart: 25, nightStart: 22, use24h: true } }])
     expect(s.settings).toMatchObject({ themeOverride: 'dark', dayStart: 6, nightStart: 22, use24h: true })
   })
+  it('accepts a default timer only in whole minutes from 1:00 to 60:00', () => {
+    const set = (defaultTimerSec: number) => run([{ type: 'updateSettings', patch: { defaultTimerSec } }]).settings.defaultTimerSec
+    expect(initialState().settings.defaultTimerSec).toBe(1800)
+    expect(set(60)).toBe(60)
+    expect(set(3600)).toBe(3600)
+    expect(set(600)).toBe(600)
+    expect(set(0)).toBe(1800)
+    expect(set(30)).toBe(1800)
+    expect(set(3660)).toBe(1800)
+    expect(set(90)).toBe(1800)
+    expect(set(120.5)).toBe(1800)
+  })
   it('opens and closes panels', () => {
     const s = run([{ type: 'setPanel', panel: 'collection' }])
     expect(s.ui.panel).toBe('collection')

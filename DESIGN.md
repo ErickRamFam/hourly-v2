@@ -429,10 +429,12 @@ first); label body `ink` left, control right.
   text 15/500 `slate`, 18px apart, padding 4 0 8. Selected: `ink` with a 2px
   `--hour-fill` underline (radius 999, `0 0 8px --hour-soft`), class `.lit-underline`.
   No track, no pill, no thumb, no shadow. Reduce motion is "Off / On" in the same control.
-- *Stepper* (Day begins, Night begins): 36px tall, radius 10, `inset 0 0 0 1px
+- *Stepper* (Day begins, Night begins, Default timer): 36px tall, radius 10, `inset 0 0 0 1px
   line-strong`; "−" and "+" 32×36 in `slate` 18px; value 56px min, tabular 15/500; steps
   by one hour. The value follows Clock labels: "6 am" / "7 pm" in 12h, "6:00" / "19:00" in
-  24h.
+  24h. Default timer steps by one minute from "1:00" to "60:00" and clamps (no wrap; at a
+  limit the button stays enabled and does nothing, so focus stays). Default 30:00; it is what
+  F8 starts when no timer is set.
 - *Clear all data:* 28px below the rows with a hairline above, a text button 15/500
   `pewter`. The tagline sits at the panel foot, serif italic 15 `slate`.
 
@@ -500,15 +502,22 @@ place it appears): "Every hour gets its own color."
 
 Quest log: title "Today's log"; count "2 of 5"; all done "Cleared."; empty "Nothing on the
 log yet."; placeholder "Add a quest"; chip "Repeats daily"; row meta "repeats daily"; row
-action "Remove"; lumen float "+1"; clean-day toast "A clean day. +2 lumens."
+actions "Edit" and "Remove" (screen readers: "Edit Water the plants", "Remove Water the
+plants"); edit field "Edit quest title"; lumen float "+1"; clean-day toast "A clean day. +2 lumens."
+
+Timer: idle "00:00"; screen-reader names "Timer, 00:00. Press to set a time", "Timer, 14:32
+left. Press to pause and edit", "Timer paused, 14:32 left. Press to edit"; field "Timer, minutes
+and seconds"; at the end "Time is up" (status region and system notification); tab title
+"14:32 · Hourly" while running.
 
 Rail tooltips: "Today", "Collection", "Settings", "12 lumens".
 
 Settings: title "Settings"; rows "Theme" (Auto / Light / Dark), "Day begins", "Night
-begins", "Second hand" (Sweep / Tick / Hidden), "Clock labels" (12h / 24h), "Reduce motion"
+begins", "Default timer" (1:00 to 60:00), "Second hand" (Sweep / Tick / Hidden), "Clock labels" (12h / 24h), "Reduce motion"
 (Off / On); button "Clear all data"; dialog title "Clear all data?", body "Quests, lumens,
 and your collection will be removed from this browser.", buttons "Cancel" / "Clear
-everything". Stepper buttons are labelled "Earlier" / "Later" for screen readers.
+everything". Stepper buttons are labelled "Earlier" / "Later" for screen readers; the Default
+timer stepper's are "Shorter" / "Longer".
 
 Collection: title "Collection"; balance "You have 12 lumens, 31 earned in all."; groups
 "Dials", "Skies"; states "Equipped", "Equip", "Buy"; price "8 lumens"; all owned "You have

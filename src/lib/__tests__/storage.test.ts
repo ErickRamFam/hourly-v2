@@ -15,7 +15,7 @@ function memoryStorage(): StorageLike & { data: Map<string, string> } {
 function populated(): AppState {
   return {
     ...initialState(),
-    settings: { themeOverride: 'dark', dayStart: 7, nightStart: 21, secondHand: 'tick', use24h: true, reduceMotion: 'on' },
+    settings: { themeOverride: 'dark', dayStart: 7, nightStart: 21, secondHand: 'tick', use24h: true, reduceMotion: 'on', defaultTimerSec: 600 },
     quests: [{ id: 'a', title: 'Stretch', repeats: true, createdDay: '2026-09-10' }],
     completions: { '2026-09-17': ['a'] },
     ledger: [
@@ -73,13 +73,26 @@ describe('storage', () => {
       owned: { dials: ['orbit', 'bogus'], skies: 'tide' },
       equipped: { dial: 'hairline', sky: 'tide' },
     })
-    expect(state.settings).toEqual({ themeOverride: 'auto', dayStart: 6, nightStart: 20, secondHand: 'sweep', use24h: false, reduceMotion: 'system' })
+    expect(state.settings).toEqual({ themeOverride: 'auto', dayStart: 6, nightStart: 20, secondHand: 'sweep', use24h: false, reduceMotion: 'system', defaultTimerSec: 1800 })
     expect(state.quests).toEqual([{ id: 'a', title: 'ok', repeats: false, createdDay: '2026-09-17' }])
     expect(state.completions).toEqual({ '2026-09-17': ['a'] })
     expect(state.ledger).toEqual([{ id: 'z', at: 1, delta: -6, reason: 'unlock', ref: 'dial:orbit' }])
     expect(state.owned).toEqual({ dials: ['lantern', 'orbit'], skies: ['daylight'] })
     expect(state.equipped).toEqual({ dial: 'lantern', sky: 'daylight' })
     expect(state.ui).toEqual({ panel: 'none' })
+  })
+
+  it('sanitizes the default timer: old saves get 30:00, odd values round to whole minutes', () => {
+    const timer = (value: unknown) => sanitizeState({ settings: { defaultTimerSec: value } }).settings.defaultTimerSec
+    expect(sanitizeState({ settings: {} }).settings.defaultTimerSec).toBe(1800)
+    expect(timer(60)).toBe(60)
+    expect(timer(3600)).toBe(3600)
+    expect(timer(59)).toBe(1800)
+    expect(timer(3601)).toBe(1800)
+    expect(timer(90)).toBe(120)
+    expect(timer(629.9)).toBe(600)
+    expect(timer('600')).toBe(1800)
+    expect(timer(Number.NaN)).toBe(1800)
   })
 
   it('refuses to migrate a newer schema', () => {

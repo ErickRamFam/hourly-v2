@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { App } from '../components/App'
@@ -145,6 +145,13 @@ describe('App', () => {
     expect(localStorage.getItem(TIMER_KEY)).toBeNull()
     expect(screen.getByRole('button', { name: 'Timer, 00:00. Press to set a time' })).toBeInTheDocument()
     expect(document.title).toBe('Hourly')
+  })
+
+  it('F8 with no timer starts the Default timer setting', () => {
+    const initial = initialState()
+    render(<App persist={false} initial={{ ...initial, settings: { ...initial.settings, defaultTimerSec: 300 } }} />)
+    fireEvent.keyDown(window, { key: 'F8' })
+    expect(screen.getByRole('button', { name: 'Timer, 05:00 left. Press to pause and edit' })).toBeInTheDocument()
   })
 
   it('never lets the timer drive the clock', async () => {

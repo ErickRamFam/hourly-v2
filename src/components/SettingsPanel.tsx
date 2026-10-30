@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type KeyboardEvent } from 'react'
 import { rovingIndex } from '../lib/roving'
+import { MAX_TIMER_SEC, MIN_TIMER_SEC } from '../lib/storage'
 import { formatHourStop } from '../lib/time'
 import { useTimerContext } from '../state/timerContext'
 import type { ReduceMotion, SecondHandMode, Settings, ThemeOverride } from '../state/types'
@@ -68,6 +69,30 @@ function Stepper({ labelId, value, use24h, onChange }: { labelId: string; value:
   )
 }
 
+/**
+ * Same box as Stepper, but clamped instead of wrapping: one minute per press, 1:00 to 60:00.
+ * At a limit the button stays enabled and does nothing (disabled would drop focus).
+ */
+function MinuteStepper({ labelId, value, onChange }: { labelId: string; value: number; onChange: (sec: number) => void }) {
+  const step = (delta: number) => {
+    const next = Math.min(MAX_TIMER_SEC, Math.max(MIN_TIMER_SEC, value + delta * 60))
+    if (next !== value) onChange(next)
+  }
+  return (
+    <div className="step flex h-9 items-center rounded-control shadow-[inset_0_0_0_1px_var(--line-strong)]" role="group" aria-labelledby={labelId}>
+      <button type="button" className="press hover-wash h-9 w-8 rounded-l-control text-[18px] leading-none text-slate" aria-label="Shorter" onClick={() => step(-1)}>
+        −
+      </button>
+      <span className="min-w-14 text-center text-[15px] font-medium tracking-[0.01em] tabular-nums text-ink" aria-live="polite">
+        {`${Math.round(value / 60)}:00`}
+      </span>
+      <button type="button" className="press hover-wash h-9 w-8 rounded-r-control text-[18px] leading-none text-slate" aria-label="Longer" onClick={() => step(1)}>
+        +
+      </button>
+    </div>
+  )
+}
+
 function Row({ label, labelId, children }: { label: string; labelId?: string; children: React.ReactNode }) {
   return (
     <li className="srow flex min-h-14 items-center justify-between gap-4 border-t border-line py-2">
@@ -86,6 +111,7 @@ export function SettingsPanel() {
   const [confirming, setConfirming] = useState(false)
   const dayId = useId()
   const nightId = useId()
+  const timerId = useId()
   const set = (patch: Partial<Settings>) => dispatch({ type: 'updateSettings', patch })
 
   return (
@@ -108,6 +134,9 @@ export function SettingsPanel() {
         </Row>
         <Row label="Night begins" labelId={nightId}>
           <Stepper labelId={nightId} value={settings.nightStart} use24h={settings.use24h} onChange={(nightStart) => set({ nightStart })} />
+        </Row>
+        <Row label="Default timer" labelId={timerId}>
+          <MinuteStepper labelId={timerId} value={settings.defaultTimerSec} onChange={(defaultTimerSec) => set({ defaultTimerSec })} />
         </Row>
         <Row label="Second hand">
           <Choice<SecondHandMode>
