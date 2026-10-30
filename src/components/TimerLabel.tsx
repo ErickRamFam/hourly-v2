@@ -6,8 +6,8 @@ import { timerLabelName } from './timerVisuals'
 /**
  * The "00:00" above the 12 (DESIGN.md §6, Timer). Press it to type a time: digits only, up
  * to four, the colon added as you type (`5` is 5:00, `530` is 5:30);
- * pressing it while running pauses first. Paused and closed, the time pulses beside two small
- * lit bars; open, the field has priority and the cue hides.
+ * pressing it while running pauses first. Paused and closed, the time pulses and a small lit
+ * play button beside it resumes; open, the field has priority and the play button hides.
  */
 export function TimerLabel({ timer, reduceMotion }: { timer: Timer; reduceMotion: boolean }) {
   /** The field holds digits only (at most four); the colon is display. */
@@ -98,15 +98,35 @@ export function TimerLabel({ timer, reduceMotion }: { timer: Timer; reduceMotion
           }}
         />
       ) : (
-        <button ref={buttonRef} type="button" className="timer-button press" aria-label={timerLabelName(timer)} onClick={open}>
-          <span className={cue && !reduceMotion ? 'timer-time timer-pulse' : 'timer-time'}>{shown}</span>
+        <>
+          <button
+            ref={buttonRef}
+            type="button"
+            className="timer-button press"
+            aria-label={timerLabelName(timer)}
+            aria-keyshortcuts="P"
+            onClick={open}
+          >
+            <span className={cue && !reduceMotion ? 'timer-time timer-pulse' : 'timer-time'}>{shown}</span>
+          </button>
+          {/* Its own Tab stop right after the time. Resumes like P; it never opens the field. */}
           {cue && (
-            <span className="timer-cue" aria-hidden="true">
-              <i />
-              <i />
-            </span>
+            <button
+              type="button"
+              className="timer-play press"
+              aria-label="Resume timer"
+              onClick={() => {
+                timer.resume()
+                // The play button goes away once running; keep focus on the timer.
+                buttonRef.current?.focus()
+              }}
+            >
+              <svg viewBox="0 0 8 10" width={8} height={10} aria-hidden="true">
+                <path d="M0.75 0.9 L7.4 5 L0.75 9.1 Z" />
+              </svg>
+            </button>
           )}
-        </button>
+        </>
       )}
       {/* Always rendered so the announcement lands; empty except at time up. Never every second. */}
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">

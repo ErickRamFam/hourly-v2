@@ -367,9 +367,13 @@ own storage key. The clock never changes because of the timer.
   `--hour-lit-next` / `--hour-next`, so Graphite stays coloured and light-theme contrast
   holds). Built from 4° segments that overlap by 0.5°; an SVG linear or radial gradient
   cannot follow an arc. Follows the equipped sky.
-- **Paused:** with the field closed, the time pulses (opacity 1 → .4, 1600ms, infinite) and
-  two 2×10 `--hour-fill` bars sit beside it. The open field has priority: no cue. No cue idle
-  or running.
+- **Paused:** with the field closed, the time pulses (opacity 1 → .4, 1600ms, infinite) and a
+  small play triangle (8×10, `--hour-fill`, soft `--hour-soft` glow) sits 6px past it. It is a
+  real button, "Resume timer", the Tab stop right after the time: a 32px hit area (44px on
+  coarse pointers) around the same small triangle, `--hour-wash` on hover, the usual focus
+  ring. It resumes like P and never opens the field; pressing the time still opens the field.
+  The open field has priority: no play button. None idle or running (no pause button: the
+  time pauses, and so does P).
 - **Time up:** the beep is booked on the Web Audio clock when the timer starts or resumes (three
   soft 880Hz pulses, 0.8s apart), so it plays on time even in a background tab; it is
   cancelled on pause, edit, cancel and reset. At 0:00 the full ring fades in and out three
@@ -377,9 +381,12 @@ own storage key. The clock never changes because of the timer.
   page is hidden or unfocused and notifications are allowed (asked once, on the first start),
   a "Time is up" notification shows. Reduced motion: no fades, the ring shows still for 1s,
   the beep still plays.
-- **Keys:** F8 and MediaPlayPause toggle pause and resume, start the Default timer when idle,
-  and resume and close an open field. Best effort: browsers often never see media keys, and
-  Chrome DevTools takes F8 while open.
+- **Keys:** P (either case) and MediaPlayPause toggle pause and resume, start the Default
+  timer when idle, and resume and close an open field. P is a plain key, so it works in every
+  browser; it does nothing while typing in a text control (the quest input, the quest edit
+  field, the timer field), with Ctrl, Cmd or Alt held (so print still works), or while the
+  Clear all data dialog is open. The label carries `aria-keyshortcuts="P"`. MediaPlayPause is
+  best effort: browsers often never see media keys.
 - **Persistence:** `hourly.timer.v1` holds `{ status: "running", endsAt, totalMs }` or
   `{ status: "paused", remainingMs, totalMs }`; remaining is always read from `endsAt`, so
   throttled background tabs never drift. A reload resumes; a timer that ended while the tab
@@ -503,7 +510,7 @@ first); label body `ink` left, control right.
   by one hour. The value follows Clock labels: "6 am" / "7 pm" in 12h, "6:00" / "19:00" in
   24h. Default timer steps by one minute from "1:00" to "60:00" and clamps (no wrap; at a
   limit the button stays enabled and does nothing, so focus stays). Default 30:00; it is what
-  F8 starts when no timer is set.
+  P starts when no timer is set.
 - *Clear all data:* 28px below the rows with a hairline above, a text button 15/500
   `pewter`. The tagline sits at the panel foot, serif italic 15 `slate`.
 
@@ -578,7 +585,8 @@ actions "Edit" and "Remove" (screen readers: "Edit Water the plants", "Remove Wa
 plants"); edit field "Edit quest title"; lumen float "+1"; clean-day toast "A clean day. +2 lumens."
 
 Timer: idle "00:00"; screen-reader names "Timer, 00:00. Press to set a time", "Timer, 14:32
-left. Press to pause and edit", "Timer paused, 14:32 left. Press to edit"; field "Timer, minutes
+left. Press to pause and edit", "Timer paused, 14:32 left. Press to edit"; play button
+"Resume timer"; field "Timer, minutes
 and seconds"; at the end "Time is up" (status region and system notification); tab title
 "14:32 · Hourly" while running.
 
