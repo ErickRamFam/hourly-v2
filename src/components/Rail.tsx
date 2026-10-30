@@ -9,6 +9,8 @@ type OpenPanel = Exclude<Panel, 'none'>
 
 const PANEL_TITLES: Record<OpenPanel, string> = { collection: 'Collection', settings: 'Settings' }
 const CLOSE_MS = 200
+/** A click on one of these takes focus itself, so an outside close leaves focus there. */
+const FOCUSABLE = 'input, textarea, select, button, a[href], [contenteditable=""], [contenteditable="true"], [tabindex]:not([tabindex="-1"])'
 
 function TodayIcon() {
   return (
@@ -57,16 +59,21 @@ export function Rail() {
 
   // Focus moves into the panel when it opens and back to the opener when it closes.
   const panelRef = useRef<HTMLElement>(null)
+  const railRef = useRef<HTMLElement>(null)
   const returnTo = useRef<HTMLElement | null>(null)
+  /** Set by an outside click on something focusable: that close leaves focus where the click put it. */
+  const keepFocus = useRef(false)
   const previous = useRef<Panel>(panel)
   useEffect(() => {
     const was = previous.current
     previous.current = panel
     if (panel !== 'none') {
       if (was === 'none') returnTo.current = document.activeElement as HTMLElement | null
+      keepFocus.current = false
       panelRef.current?.focus()
     } else if (was !== 'none') {
-      returnTo.current?.focus()
+      if (!keepFocus.current) returnTo.current?.focus()
+      keepFocus.current = false
       returnTo.current = null
     }
   }, [panel])
@@ -114,6 +121,24 @@ export function Rail() {
     return () => document.removeEventListener('keydown', onKey)
   }, [panel])
 
+  // A pointerdown outside the panel closes it through the same close() as the X. Not inside the
+  // panel, not on the rail (its buttons already toggle), and never while the Clear all data
+  // dialog is open: it is portalled to <body>, outside the panel. The event is left alone
+  // (no preventDefault or stopPropagation), so whatever was clicked still gets it.
+  useEffect(() => {
+    if (panel === 'none' || closing) return
+    const onDown = (e: PointerEvent) => {
+      const target = e.target
+      if (!(target instanceof Element)) return
+      if (panelRef.current?.contains(target) || railRef.current?.contains(target)) return
+      if (target.closest('[data-modal]') || document.querySelector('[data-modal]')) return
+      keepFocus.current = target.closest(FOCUSABLE) !== null
+      closeRef.current()
+    }
+    document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
+  }, [panel, closing])
+
   return (
     <>
       {shown && !closing && <div className="scrim pointer-events-none fixed inset-0 z-10" aria-hidden="true" />}
@@ -138,6 +163,7 @@ export function Rail() {
         </aside>
       )}
       <nav
+        ref={railRef}
         className="rail fixed inset-y-0 right-0 z-30 flex flex-col items-center"
         aria-label="Sections"
       >

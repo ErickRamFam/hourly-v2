@@ -459,6 +459,12 @@ in 13/500 tabular `slate`, with the rail's own 4px `--hour-fill` lit dot 6px abo
 close "×" 22px `slate` in a 28px radius-10 button. Page behind gets a scrim `mix(paper
 35%, transparent)`. Motion: `panel-in` 320ms `--ease-settle` / `panel-out` 200ms
 `--ease-glide`; mobile `sheet-in`.
+It closes four ways, all through the same exit and the same focus return to the rail button
+that opened it: the ×, Escape, the rail button again, or a click or tap anywhere outside the
+panel and the rail (the scrim lets that click through, so whatever was clicked still gets
+it). When that outside click lands on something focusable (the quest input, a checkbox, the
+timer label), focus stays there instead of returning to the rail. Clicks never close it
+while the Clear all data dialog is open.
 
 **Collection.** Balance sentence body `slate` 10px under the title. Group titles serif 19,
 margin 28 0 6, padding-top 14, `border-top: 1px line`.
