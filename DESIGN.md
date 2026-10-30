@@ -106,8 +106,9 @@ the night stays deep, and only the fill is lifted.
 Lightness cap .56 (≥ 3:1 against the haloed page); chroma floor .12 (pale straw and sea glass
 stay colour, never grey or sage); hue identity below 80° and above 150°, flat 80° across
 80–115° (yellows become gold, never olive), and 115–150° re-spread to 80–150° so the map is
-continuous. 12h and 13–14h may share nearly the same gold; one wedge is lit at a time and
-the position carries the change. Measured: 12:07 `#A26B06`, 14:30 `#9A6C02`, 16:40 `#A46400`.
+continuous. 12h and 13–14h may share nearly the same gold; the passed hours of the lap all
+share the current `--hour-fill` and the current hour blends into it, so position and the
+blend carry the change. Measured: 12:07 `#A26B06`, 14:30 `#9A6C02`, 16:40 `#A46400`.
 **Dark:** lightness floor .74 (night indigo 23h `#9FA0FD`, 3h `#9499F5`; coral 19h `#EB8192`).
 
 ### Light strengths (per theme)
@@ -274,7 +275,7 @@ min(440px, 52vh)))`; at ≥1600w and ≥960h the 440 becomes 480; at ≤760 `min
   var(--slate)) var(--ring-tint), transparent)`. The lap is stops 0–11 before noon and
   12–23 after, so mornings and evenings tint differently. Squint test: only the lit wedge,
   halo, and hands survive.
-- **Lit section:** drawn in this order: (1) the wedge blurred `stdDeviation 16`, fill
+- **Lit sections:** drawn in this order (the bloom copies for the current section only): (1) the wedge blurred `stdDeviation 16`, fill
   `--hour-bloom`, opacity `--glow-far`, filter region -60% / 220%; (2) blurred 6, same
   fill, opacity `--glow-near`, region -40% / 180%; (3) the unlit sections; (4) the wedge,
   fill `--hour-fill`; (5) outer highlight arc r 184, inset 1.5° each end, 1px white at
@@ -288,29 +289,49 @@ min(440px, 52vh)))`; at ≥1600w and ≥960h the 440 becomes 480; at ≤760 `min
   `paper`, r 5.5 `ink`.
 - **Second hand:** sweep (rAF, default), tick (180ms `cubic-bezier(.4,2,.5,1)` per
   second), hidden.
-- **Top of the hour:** the old wedge fades to its tint and the new one rises over 1200ms
-  `--ease-dawn`; halo, aurora, and every `--hour-*` follow via a 1200ms transition.
+- **Fill, hour by hour:** every dial fills as the lap goes. Hours that have passed this lap
+  stay lit, the current hour is lit, future hours are unlit. Section index `lit = hour % 12`
+  (`sectionForHour`), so the lap clears at 12:00 am and 12:00 pm by itself. The fill is
+  derived only from the current time, never from history or storage: at 3:40 pm the page
+  loads with 12 to 2 filled, 3 blending, the rest empty, and it never animates up from 12.
+  Each lit mark carries `data-state="passed" | "current" | "future"`.
+- **Colour:** all passed marks share one colour, the current `--hour-fill`. The current mark
+  starts lighter and deepens into it over the hour: `progress = (minutes·60 + seconds) / 3600`,
+  `pct = round(55 + 45·progress)`, fill `color-mix(in oklab, var(--hour-fill) pct%, white)`
+  (`src/components/clock/fill.ts`). The bloom (near + far copies) stays under the current
+  mark only, so the glow still marks "now".
+- **Top of the hour:** the new mark fades in over the passed ones over 1200ms `--ease-dawn`
+  (at 12:00 the lap's marks fade out together); halo, aurora, and every `--hour-*` follow via
+  a 1200ms transition. If the hour turns while the app is open, the new current mark pulses
+  softly twice (`hour-flash`, opacity 1 → .45 → 1 twice, 1400ms `--ease-glide`). Never on
+  load, reload, or a dial, sky or theme change; never under reduced motion.
 
-Dial variants (same glow stack: near + far bloom copies under the lit mark):
+Dial variants (same glow stack: near + far bloom copies under the current mark). Each fills in
+its own way; only Lantern fills with wedges from the centre:
 
-**Sector** (10 lumens). As above.
+**Sector** (10 lumens). As above: passed ring segments take the passed colour, the current
+one blends, future segments keep their ring tint.
 
 **Hairline.** Ring r 172, 1px `line-strong`. Twelve hour ticks r 178→164, 1.5 `ink`;
 sixty minute ticks r 176→172, 1 `pewter` .5. No sections. Lit: a 3px arc at r 172 across
-the hour (inset 1°), `--hour-fill`, round caps.
+the hour (inset 1°), `--hour-fill`, round caps. Every passed hour keeps its arc (no bloom on
+passed arcs).
 
 **Rays.** Twelve radial lines r 124→184 at the section centers, 1.5, `slate` at .55,
-round caps. Lit ray 3 wide `--hour-fill`. Numerals move to r 104. No minute ticks.
+round caps. Lit ray 3 wide `--hour-fill`; every passed ray stays lit, future rays stay thin
+`slate`. Numerals move to r 104. No minute ticks.
 
 **Lantern** (default, free). Twelve full wedges r 0→186, no gaps, no outlines, each filled
 `color-mix(in oklab, color-mix(in oklab, <lap stop> 25%, var(--slate)) var(--lantern-tint),
 transparent)` (tint 7% light, 9% dark), so the unlit face is one soft disc, never two halves.
-Lit wedge: radial gradient `--hour-fill` 0 at center → .85 at the rim. Cap grows to r 7.
+Lit wedges (passed): radial gradient `--hour-fill` 0 at center → .85 at the rim; the current
+wedge has a second gradient with the same stops in the blended colour. Cap grows to r 7.
 
 **Orbit.** 1px `line-strong` ring r 172; twelve dots r 5.5 at the section centers filled
 `--orbit-dot` (slate at 40% light / 32% dark), so the structure reads; lit dot r 9
-`--hour-fill`, breathing `scale 1→1.12` 4s `--ease-glide` (off under reduced
-motion). No numerals.
+`--hour-fill`. Passed dots stay swelled (r 9, lit colour); only the current dot breathes,
+`scale 1→1.12` 4s `--ease-glide` (off under reduced motion); future dots stay small. No
+numerals.
 
 ## 7. Layout
 
@@ -388,7 +409,8 @@ margin 28 0 6, padding-top 14, `border-top: 1px line`.
   sky; Sector preview omits numerals and minute ticks), with name (17/450), description
   (13 `slate`), and "Equipped" beside it, gap 20. Below, the other four as rows:
   min-height 66, padding 6 0, gap 14, `border-top: 1px line`; the dial drawn straight on
-  the glass at 64px (no tile, no fill, no border), lit at hour 10 with its glow; name,
+  the glass at 64px (no tile, no fill, no border), filled to hour 10 the way the dial fills
+(hours 0 to 9 passed, 10 current at a fixed blend of progress .5, near glow under 10); name,
   description, state right. The 64px art uses heavier strokes than §6 so it survives the
   scale (viewBox units): Sector band 186→150, gap 3°; Hairline ring 6 `line-strong`, ticks
   r 180→160 at 9, lit arc 18; Rays r 118→184 at 9 `slate` .55, lit 18; Lantern tints 7%;
@@ -431,7 +453,8 @@ with no history: outlines only.
 | quick | 200ms | panel-out, segment underline slide, dialog in |
 | settle | 320ms | check-off, panel-in, row remove |
 | slow | 600ms | hour word crossfade |
-| dawn | 1200ms | lit section handoff, `--hour` recolor, load |
+| dawn | 1200ms | new hour joins the fill, 12:00 clear, `--hour` recolor, load |
+| hour flash | 1400ms | two soft pulses on the new current mark, `--ease-glide` |
 | `--ease-settle` | `cubic-bezier(.25,1,.5,1)` | arrivals |
 | `--ease-glide` | `cubic-bezier(.65,0,.35,1)` | aurora drift, departures |
 | `--ease-lift` | `cubic-bezier(.34,1.4,.64,1)` | the checkbox squeeze only |
@@ -441,7 +464,7 @@ Load, the one orchestrated moment: the page renders still, then halo, lit wedge,
 fade in over 1200ms (`light-on`) and the hour word and line rise 4px over 600ms from 240ms
 (`word-in`). Nothing else enters or staggers. Reduced motion (OS or setting, via
 `[data-reduce-motion="true"]` on `<html>`): aurora frozen, no breathing, entrances 1ms,
-second hand forced to tick, hour handoff is a cut.
+second hand forced to tick, hour handoff is a cut, no new-hour flash (gated in JS too).
 
 ## 10. Copy
 

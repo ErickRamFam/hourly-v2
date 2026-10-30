@@ -97,8 +97,9 @@ html[data-hue-ready] {
 .personality { text-wrap: balance; font-style: italic; }
 
 /* Clock. The lit colour derives from the transitioning --hour, so lit marks never get their
-   own colour transition (it would restart every frame and lag). The Sector handoff is an
-   opacity crossfade between per-section lit overlays; other dials fade the new mark in. */
+   own colour transition (it would restart every frame and lag). Each dial fills hour by
+   hour: at the top of the hour the new mark fades in over the passed ones, and at 12:00 the
+   lap's marks fade out together. */
 .clock-lit { transition: opacity var(--duration-dawn) var(--ease-dawn); }
 .orbit-swell { transform-box: fill-box; transform-origin: center; transition: transform var(--duration-dawn) var(--ease-dawn); }
 .clock-hand { transform-origin: 200px 200px; }

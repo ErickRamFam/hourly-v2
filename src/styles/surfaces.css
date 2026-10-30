@@ -200,16 +200,24 @@
 }
 .orbit-breathe { animation: orbit-breathe 4s var(--ease-glide) infinite; transform-origin: center; transform-box: fill-box; }
 
-/* ---- Reduced motion: no drift, no breathe, instant transitions ---- */
+/* ---- New hour: the new current mark pulses twice, softly (only while the app is open) ---- */
+@keyframes hour-flash {
+  0%, 50%, 100% { opacity: 1; }
+  25%, 75%      { opacity: 0.45; }
+}
+.hour-flash { animation: hour-flash 1400ms var(--ease-glide) both; }
+
+/* ---- Reduced motion: no drift, no breathe, no flash, instant transitions ---- */
 @media (prefers-reduced-motion: reduce) {
-  .aurora-a, .aurora-b, .aurora-c, .orbit-breathe { animation: none; }
+  .aurora-a, .aurora-b, .aurora-c, .orbit-breathe, .hour-flash { animation: none; }
   .light-on, .word-in, .panel-in, .panel-out, .sheet-in, .check-fill, .lumen-rise { animation-duration: 1ms; }
   .check-draw { animation: none; stroke-dashoffset: 0; }
 }
 [data-reduce-motion="true"] .aurora-a,
 [data-reduce-motion="true"] .aurora-b,
 [data-reduce-motion="true"] .aurora-c,
-[data-reduce-motion="true"] .orbit-breathe { animation: none; }
+[data-reduce-motion="true"] .orbit-breathe,
+[data-reduce-motion="true"] .hour-flash { animation: none; }
 [data-reduce-motion="true"] .light-on,
 [data-reduce-motion="true"] .word-in,
 [data-reduce-motion="true"] .panel-in,
