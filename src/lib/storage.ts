@@ -2,7 +2,7 @@ import { DEFAULT_DIAL_ID, isDialId } from './dials'
 import { DEFAULT_SKY_ID, SKIES } from './skies'
 import type { Completions, LedgerEntry, LedgerReason, Quest } from './quests'
 import type { AppState, PersistedState, Settings } from '../state/types'
-import { REDUCE_MOTION_MODES, SECOND_HAND_MODES, THEME_OVERRIDES } from '../state/types'
+import { CLOCK_FILL_MODES, REDUCE_MOTION_MODES, SECOND_HAND_MODES, THEME_OVERRIDES } from '../state/types'
 
 export const STORAGE_KEY = 'hourly.v2'
 export const SCHEMA_VERSION = 1 as const
@@ -18,6 +18,8 @@ export function defaultSettings(): Settings {
     use24h: false,
     reduceMotion: 'system',
     defaultTimerSec: DEFAULT_TIMER_SEC,
+    clockFill: 'blend',
+    lumensEnabled: true,
   }
 }
 
@@ -74,8 +76,10 @@ function sanitizeSettings(value: unknown): Settings {
     secondHand: oneOf(value.secondHand, SECOND_HAND_MODES, base.secondHand),
     use24h: typeof value.use24h === 'boolean' ? value.use24h : base.use24h,
     reduceMotion: oneOf(value.reduceMotion, REDUCE_MOTION_MODES, base.reduceMotion),
-    // Old saves have none and get 30:00; anything else is clamped to the range in whole minutes.
+    // Old saves have none and get 30:00, as does anything out of range; in range rounds to whole minutes.
     defaultTimerSec: Math.round(int(value.defaultTimerSec, base.defaultTimerSec, MIN_TIMER_SEC, MAX_TIMER_SEC) / 60) * 60,
+    clockFill: oneOf(value.clockFill, CLOCK_FILL_MODES, base.clockFill),
+    lumensEnabled: typeof value.lumensEnabled === 'boolean' ? value.lumensEnabled : base.lumensEnabled,
   }
 }
 
@@ -138,31 +142,37 @@ function sanitizeOwned(value: unknown): AppState['owned'] {
   }
 }
 
-function sanitizeEquipped(value: unknown, owned: AppState['owned']): AppState['equipped'] {
+/**
+ * With lumens on, an equipped item must be owned. With lumens off anything in the catalog
+ * may be equipped (it was picked for free), so a reload keeps it; unknown ids never pass.
+ */
+function sanitizeEquipped(value: unknown, owned: AppState['owned'], lumensEnabled: boolean): AppState['equipped'] {
   const base = initialState().equipped
   if (!isRecord(value)) return base
   const dial = str(value.dial)
   const sky = str(value.sky)
-  return {
-    dial: dial && owned.dials.includes(dial) ? dial : base.dial,
-    sky: sky && owned.skies.includes(sky) ? sky : base.sky,
-  }
+  const skyIds = new Set(SKIES.map((s) => s.id))
+  const dialOk = dial !== null && (lumensEnabled ? owned.dials.includes(dial) : isDialId(dial))
+  const skyOk = sky !== null && (lumensEnabled ? owned.skies.includes(sky) : skyIds.has(sky))
+  return { dial: dialOk ? dial : base.dial, sky: skyOk ? sky : base.sky }
 }
 
 /** Coerces any parsed value into a valid AppState, filling defaults for anything missing or malformed. */
 export function sanitizeState(raw: unknown): AppState {
   const base = initialState()
   if (!isRecord(raw)) return base
+  // Settings first: whether lumens are on decides which equipped items are valid.
+  const settings = sanitizeSettings(raw.settings)
   const quests = sanitizeQuests(raw.quests)
   const owned = sanitizeOwned(raw.owned)
   return {
     schemaVersion: SCHEMA_VERSION,
-    settings: sanitizeSettings(raw.settings),
+    settings,
     quests,
     completions: sanitizeCompletions(raw.completions, quests),
     ledger: sanitizeLedger(raw.ledger),
     owned,
-    equipped: sanitizeEquipped(raw.equipped, owned),
+    equipped: sanitizeEquipped(raw.equipped, owned, settings.lumensEnabled),
     ui: { panel: 'none' },
   }
 }

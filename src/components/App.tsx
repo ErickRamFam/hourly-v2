@@ -34,6 +34,7 @@ function ClockHero() {
         secondHand={settings.secondHand}
         reduceMotion={reduceMotion}
         use24h={settings.use24h}
+        fill={settings.clockFill}
       />
       {/* The timer sits over the clock but never drives it: separate SVG, separate state. */}
       {timer && <TimerBar timer={timer} reduceMotion={reduceMotion} />}

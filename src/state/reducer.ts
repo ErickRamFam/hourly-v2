@@ -1,9 +1,9 @@
-import { getDial, isDialId } from '../lib/dials'
+import { DEFAULT_DIAL_ID, getDial, isDialId } from '../lib/dials'
 import * as Q from '../lib/quests'
-import { SKIES, getSky } from '../lib/skies'
+import { DEFAULT_SKY_ID, SKIES, getSky } from '../lib/skies'
 import { MAX_TIMER_SEC, MIN_TIMER_SEC, initialState } from '../lib/storage'
 import { dayKey } from '../lib/time'
-import type { AppState, ItemKind, Panel, Settings } from './types'
+import { CLOCK_FILL_MODES, type AppState, type ItemKind, type Panel, type Settings } from './types'
 
 export type Action =
   | { type: 'addQuest'; title: string; repeats: boolean; now: number; id?: string }
@@ -68,6 +68,8 @@ export function reducer(state: AppState, action: Action): AppState {
       if (p.secondHand !== undefined) next.secondHand = p.secondHand
       if (p.reduceMotion !== undefined) next.reduceMotion = p.reduceMotion
       if (p.use24h !== undefined) next.use24h = p.use24h
+      if (p.clockFill !== undefined && CLOCK_FILL_MODES.includes(p.clockFill)) next.clockFill = p.clockFill
+      if (typeof p.lumensEnabled === 'boolean') next.lumensEnabled = p.lumensEnabled
       if (p.dayStart !== undefined && Number.isInteger(p.dayStart) && p.dayStart >= 0 && p.dayStart <= 23) {
         next.dayStart = p.dayStart
       }
@@ -78,9 +80,18 @@ export function reducer(state: AppState, action: Action): AppState {
       if (t !== undefined && Number.isInteger(t) && t % 60 === 0 && t >= MIN_TIMER_SEC && t <= MAX_TIMER_SEC) {
         next.defaultTimerSec = t
       }
+      // Lumens back on: anything equipped for free that was never bought goes back to the
+      // default. owned is the record of what was bought, so nothing else needs undoing.
+      if (!state.settings.lumensEnabled && next.lumensEnabled) {
+        const dial = state.owned.dials.includes(state.equipped.dial) ? state.equipped.dial : DEFAULT_DIAL_ID
+        const sky = state.owned.skies.includes(state.equipped.sky) ? state.equipped.sky : DEFAULT_SKY_ID
+        if (dial !== state.equipped.dial || sky !== state.equipped.sky) return { ...state, settings: next, equipped: { dial, sky } }
+      }
       return { ...state, settings: next }
     }
     case 'unlock': {
+      // Nothing is for sale while lumens are off.
+      if (!state.settings.lumensEnabled) return state
       if (!itemExists(action.kind, action.id)) return state
       if (ownedList(state, action.kind).includes(action.id)) return state
       const price = itemPrice(action.kind, action.id)
@@ -99,7 +110,9 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, owned, ledger: [...state.ledger, entry] }
     }
     case 'equip': {
-      if (!ownedList(state, action.kind).includes(action.id)) return state
+      // Lumens off: anything in the catalog equips for free, without touching owned or the ledger.
+      if (!itemExists(action.kind, action.id)) return state
+      if (state.settings.lumensEnabled && !ownedList(state, action.kind).includes(action.id)) return state
       const equipped = action.kind === 'dial' ? { ...state.equipped, dial: action.id } : { ...state.equipped, sky: action.id }
       if (equipped.dial === state.equipped.dial && equipped.sky === state.equipped.sky) return state
       return { ...state, equipped }

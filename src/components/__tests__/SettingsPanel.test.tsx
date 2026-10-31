@@ -1,9 +1,10 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { initialState } from '../../lib/storage'
+import { STORAGE_KEY, initialState, load } from '../../lib/storage'
 import { StoreProvider } from '../../state/StoreProvider'
 import type { AppState } from '../../state/types'
+import { TimerContext } from '../../state/timerContext'
 import { SettingsPanel } from '../SettingsPanel'
 
 function renderSettings(patch: Partial<AppState['settings']> = {}) {
@@ -128,5 +129,114 @@ describe('Default timer', () => {
     await user.click(longer)
     expect(group).toHaveTextContent('60:00')
     expect(longer).toHaveFocus()
+  })
+})
+
+const rowLabels = () => Array.from(document.querySelectorAll('.srow > span:first-child')).map((el) => el.textContent)
+
+describe('Clock display', () => {
+  it('sits after Clock labels, defaults to Blend and describes the selected mode', async () => {
+    const user = userEvent.setup()
+    renderSettings()
+    const labels = rowLabels()
+    expect(labels[labels.indexOf('Clock labels') + 1]).toBe('Clock display')
+    const group = screen.getByRole('radiogroup', { name: 'Clock display' })
+    expect(within(group).getAllByRole('radio').map((r) => r.textContent)).toEqual(['Blend', 'Hour only', 'Solid', 'Accent'])
+    expect(within(group).getByRole('radio', { name: 'Blend' })).toHaveAttribute('aria-checked', 'true')
+    const row = group.closest('.srow')!
+    expect(row.querySelector('.srow-helper')).toHaveTextContent('Each hour fills in, and the current hour fades into the fill.')
+    await user.click(within(group).getByRole('radio', { name: 'Hour only' }))
+    expect(row.querySelector('.srow-helper')).toHaveTextContent('Only the current hour is lit.')
+    expect(group).toHaveAccessibleDescription('Only the current hour is lit.')
+    await user.click(within(group).getByRole('radio', { name: 'Solid' }))
+    expect(row.querySelector('.srow-helper')).toHaveTextContent('Each hour fills in as one solid color.')
+    await user.click(within(group).getByRole('radio', { name: 'Accent' }))
+    expect(row.querySelector('.srow-helper')).toHaveTextContent('The current hour stands out in its own color.')
+  })
+
+  it('is one tab stop with arrows, Home and End', async () => {
+    const user = userEvent.setup()
+    renderSettings({ clockFill: 'solid' })
+    const group = screen.getByRole('radiogroup', { name: 'Clock display' })
+    const radios = within(group).getAllByRole('radio')
+    expect(radios.filter((r) => r.tabIndex === 0)).toEqual([radios[2]])
+    radios[2].focus()
+    await user.keyboard('{ArrowRight}')
+    expect(radios[3]).toHaveFocus()
+    expect(radios[3]).toHaveAttribute('aria-checked', 'true')
+    await user.keyboard('{ArrowRight}')
+    expect(radios[0]).toHaveFocus()
+    await user.keyboard('{End}')
+    expect(radios[3]).toHaveAttribute('aria-checked', 'true')
+    await user.keyboard('{Home}')
+    expect(radios[0]).toHaveAttribute('aria-checked', 'true')
+    await user.keyboard('{ArrowLeft}')
+    expect(radios[3]).toHaveFocus()
+  })
+
+  it('persists the selection', async () => {
+    localStorage.clear()
+    const user = userEvent.setup()
+    render(
+      <StoreProvider initial={initialState()}>
+        <SettingsPanel />
+      </StoreProvider>,
+    )
+    await user.click(screen.getByRole('radio', { name: 'Hour only' }))
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}').settings?.clockFill).toBe('hour'))
+    expect(load().settings.clockFill).toBe('hour')
+  })
+})
+
+describe('Lumens', () => {
+  it('sits after Reduce motion, before Clear all data, with a helper only while Off', async () => {
+    const user = userEvent.setup()
+    renderSettings()
+    const labels = rowLabels()
+    expect(labels.at(-2)).toBe('Reduce motion')
+    expect(labels.at(-1)).toBe('Lumens')
+    const group = screen.getByRole('radiogroup', { name: 'Lumens' })
+    const row = group.closest('.srow')!
+    expect(within(group).getByRole('radio', { name: 'On' })).toHaveAttribute('aria-checked', 'true')
+    expect(row.querySelector('.srow-helper')).toBeNull()
+    within(group).getByRole('radio', { name: 'On' }).focus()
+    await user.keyboard('{ArrowRight}')
+    expect(within(group).getByRole('radio', { name: 'Off' })).toHaveFocus()
+    expect(within(group).getByRole('radio', { name: 'Off' })).toHaveAttribute('aria-checked', 'true')
+    expect(row.querySelector('.srow-helper')).toHaveTextContent('Everything in your collection is unlocked.')
+    expect(group).toHaveAccessibleDescription('Everything in your collection is unlocked.')
+    await user.keyboard('{Home}')
+    expect(within(group).getByRole('radio', { name: 'On' })).toHaveAttribute('aria-checked', 'true')
+    expect(row.querySelector('.srow-helper')).toBeNull()
+  })
+})
+
+describe('Clear all data dialog', () => {
+  it('keeps focus where the user put it when the panel re-renders (a running timer ticks)', async () => {
+    const user = userEvent.setup()
+    const ui = (n: number) => (
+      <StoreProvider persist={false}>
+        <TimerContext.Provider value={{ n, reset() {} } as never}>
+          <SettingsPanel />
+        </TimerContext.Provider>
+      </StoreProvider>
+    )
+    const { rerender } = render(ui(1))
+    await user.click(screen.getByRole('button', { name: 'Clear all data' }))
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Clear everything' })).toHaveFocus()
+    rerender(ui(2))
+    expect(screen.getByRole('button', { name: 'Clear everything' })).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('button', { name: 'Clear all data' })).toHaveFocus()
+  })
+
+  it('does not mention lumens while Lumens is off', async () => {
+    const user = userEvent.setup()
+    renderSettings({ lumensEnabled: false })
+    await user.click(screen.getByRole('button', { name: 'Clear all data' }))
+    expect(screen.getByRole('dialog')).toHaveTextContent('Quests and your collection will be removed from this browser.')
+    expect(screen.getByRole('dialog').textContent).not.toMatch(/lumen/i)
   })
 })

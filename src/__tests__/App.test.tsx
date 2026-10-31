@@ -44,9 +44,9 @@ describe('App', () => {
     expect(check).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByText('Cleared.')).toBeInTheDocument()
     // The toast takes the count's slot in the log head instead of adding a line (critique 02 m2).
-    const status = screen.getByText('A clean day. +2 lumens.')
-    expect(status).toHaveAttribute('role', 'status')
-    expect(status.closest('.log-head')).not.toBeNull()
+    const status = screen.getByText('A clean day. +2 lumens.').closest('[role="status"]')
+    expect(status).not.toBeNull()
+    expect(status?.closest('.log-head')).not.toBeNull()
     expect(screen.getByRole('img', { name: '3 lumens' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Collection' }))

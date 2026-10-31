@@ -5,7 +5,8 @@ import { DIALS, type DialId } from '../../../lib/dials'
 import { getSky } from '../../../lib/skies'
 import { Clock, HOUR_FLASH_MS } from '../Clock'
 import { DialArt } from '../DialArt'
-import { currentFill, currentFillPct, hourProgress, markState } from '../fill'
+import { currentFill, currentFillPct, currentMarkFill, hourProgress, markState } from '../fill'
+import type { ClockFill } from '../../../state/types'
 
 const props = { sky: getSky('daylight'), secondHand: 'sweep' as const, reduceMotion: false, use24h: false }
 const at = (h: number, m = 0, s = 0) => new Date(2026, 8, 17, h, m, s)
@@ -172,4 +173,173 @@ describe('Collection art is filled to hour 10', () => {
       expect(colours.filter((c) => c === currentFill(0.5))).toHaveLength(1)
     })
   }
+})
+
+/** Colour drawn on a lit mark, whatever the dial draws it with. */
+function markColour(mark: Element): string {
+  const el = mark.querySelector<SVGElement>('path, line, circle')!
+  return el.style.fill || el.style.stroke || el.getAttribute('fill') || ''
+}
+const states = (container: HTMLElement) => litMarks(container, 'clock-lit-layer').map((m) => m.getAttribute('data-state'))
+const MODES: readonly ClockFill[] = ['blend', 'hour', 'solid', 'accent']
+
+describe('Clock display modes (every dial)', () => {
+  // 10:03 (mid-lap), 12:00 (the lap clears), 23:59 (the last hour of the PM lap).
+  const TIMES = [
+    { now: at(10, 3), lit: 10 },
+    { now: at(12), lit: 0 },
+    { now: at(23, 59), lit: 11 },
+  ]
+  for (const { id } of DIALS) {
+    for (const fill of MODES) {
+      it(`${id} / ${fill}: visible marks and data-state at 10:03, 12:00 and 23:59`, () => {
+        for (const { now, lit } of TIMES) {
+          const { container, unmount } = render(<Clock {...props} dial={id} fill={fill} now={now} />)
+          expect(container.querySelector('svg')).toHaveAttribute('data-fill', fill)
+          expect(states(container)).toEqual(SECTIONS_STATES(lit))
+          const shown = visibleIndexes(container)
+          expect(shown).toEqual(fill === 'hour' ? [lit] : Array.from({ length: lit + 1 }, (_, i) => i))
+          // Blooms stay on the current hour only, in every mode.
+          expect(visible(litMarks(container, 'clock-glow'))).toHaveLength(1)
+          expect(litMarks(container, 'clock-glow')[lit]).toHaveAttribute('opacity', '1')
+          unmount()
+        }
+      })
+    }
+  }
+
+  for (const id of ['sector', 'hairline', 'rays', 'orbit'] as const) {
+    it(`${id}: the current mark is blended in Blend, the passed colour in Solid and Hour only, --hour-accent in Accent`, () => {
+      const colours = (fill: ClockFill) => {
+        const { container, unmount } = render(<Clock {...props} dial={id} fill={fill} now={at(10, 30)} />)
+        const marks = litMarks(container, 'clock-lit-layer')
+        const out = { passed: markColour(marks[3]), current: markColour(marks[10]) }
+        unmount()
+        return out
+      }
+      expect(colours('blend')).toEqual({ passed: 'var(--hour-fill)', current: currentFill(0.5) })
+      expect(colours('solid')).toEqual({ passed: 'var(--hour-fill)', current: 'var(--hour-fill)' })
+      expect(colours('hour').current).toBe('var(--hour-fill)')
+      expect(colours('accent')).toEqual({ passed: 'var(--hour-fill)', current: 'var(--hour-accent)' })
+    })
+  }
+
+  it('lantern: the current wedge gradient is the blend, the fill or the accent', () => {
+    const stop = (fill: ClockFill) => {
+      const { container, unmount } = render(<Clock {...props} dial="lantern" fill={fill} now={at(10, 30)} />)
+      const s = (container.querySelector('radialGradient[id$="-lantern-now"] stop') as SVGElement).style.stopColor
+      unmount()
+      return s
+    }
+    expect(stop('blend')).toBe(currentFill(0.5))
+    expect(stop('solid')).toBe('var(--hour-fill)')
+    expect(stop('hour')).toBe('var(--hour-fill)')
+    expect(stop('accent')).toBe('var(--hour-accent)')
+  })
+
+  it('solid and accent do not blend: the current colour is the same at :00 and :59', () => {
+    for (const fill of ['solid', 'accent', 'hour'] as const) {
+      expect(currentMarkFill(fill, 0)).toBe(currentMarkFill(fill, 0.99))
+    }
+    expect(currentMarkFill('blend', 0)).not.toBe(currentMarkFill('blend', 0.99))
+  })
+
+  for (const { id } of DIALS) {
+    it(`${id} / hour only: one lit mark, handed off by crossfade on the same elements`, () => {
+      const { container, rerender } = render(<Clock {...props} dial={id} fill="hour" now={at(10, 59, 59)} />)
+      const marks = litMarks(container, 'clock-lit-layer')
+      expect(visible(marks)).toHaveLength(1)
+      expect(marks[10]).toHaveAttribute('opacity', '1')
+      rerender(<Clock {...props} dial={id} fill="hour" now={at(11)} />)
+      const after = litMarks(container, 'clock-lit-layer')
+      expect(after[10]).toBe(marks[10]) // same node, so .clock-lit's opacity transition runs both ways
+      expect(after[10]).toHaveAttribute('opacity', '0')
+      expect(after[11]).toHaveAttribute('opacity', '1')
+      expect(visible(after)).toHaveLength(1)
+    })
+  }
+
+  it('orbit / hour only: only the current dot is swelled and breathing', () => {
+    const { container } = render(<Clock {...props} dial="orbit" fill="hour" now={at(10, 30)} />)
+    const swell = Array.from(container.querySelectorAll<SVGGElement>('.orbit-swell'))
+    expect(swell[10].style.transform).toBe('scale(1)')
+    expect(swell[3].style.transform).toMatch(/^scale\(0\.61/)
+    expect(swell[11].style.transform).toMatch(/^scale\(0\.61/)
+    expect(container.querySelectorAll('.clock-lit-layer .orbit-breathe')).toHaveLength(1)
+  })
+})
+
+function SECTIONS_STATES(lit: number) {
+  return Array.from({ length: 12 }, (_, i) => markState(i, lit))
+}
+
+describe('new-hour flash by mode', () => {
+  const clock = (now: Date, fill: ClockFill, reduceMotion = false) => (
+    <StrictMode>
+      <Clock {...props} dial="rays" fill={fill} reduceMotion={reduceMotion} now={now} />
+    </StrictMode>
+  )
+  for (const fill of ['blend', 'solid', 'accent'] as const) {
+    it(`${fill}: flashes when the hour turns, never on mount or with reduced motion`, () => {
+      const { container, rerender, unmount } = render(clock(at(10, 59, 59), fill))
+      expect(flashing(container)).toHaveLength(0)
+      rerender(clock(at(11), fill))
+      expect(flashing(container)).toHaveLength(1)
+      unmount()
+      const reduced = render(clock(at(10, 59, 59), fill, true))
+      reduced.rerender(clock(at(11), fill, true))
+      expect(flashing(reduced.container)).toHaveLength(0)
+    })
+  }
+  it('hour only: never flashes (the handoff marks the hour)', () => {
+    const { container, rerender } = render(clock(at(10, 59, 59), 'hour'))
+    rerender(clock(at(11), 'hour'))
+    expect(flashing(container)).toHaveLength(0)
+  })
+  it('a flash cut short by Hour only or reduced motion does not replay when switched back', () => {
+    const { container, rerender } = render(clock(at(10, 59, 59), 'blend'))
+    rerender(clock(at(11), 'blend'))
+    expect(flashing(container)).toHaveLength(1)
+    rerender(clock(at(11), 'hour'))
+    expect(flashing(container)).toHaveLength(0)
+    rerender(clock(at(11), 'blend'))
+    expect(flashing(container)).toHaveLength(0)
+    rerender(clock(at(11, 59, 59), 'solid'))
+    rerender(clock(at(12), 'solid'))
+    expect(flashing(container)).toHaveLength(1)
+    rerender(clock(at(12), 'solid', true))
+    rerender(clock(at(12), 'solid'))
+    expect(flashing(container)).toHaveLength(0)
+  })
+
+  it('switching mode does not flash', () => {
+    const { container, rerender } = render(clock(at(10, 20), 'blend'))
+    rerender(clock(at(10, 20), 'accent'))
+    rerender(clock(at(10, 20), 'hour'))
+    expect(flashing(container)).toHaveLength(0)
+  })
+})
+
+describe('Collection art follows the Clock display', () => {
+  const colours = (dial: DialId, fill: ClockFill) => {
+    const { container, unmount } = render(<DialArt dial={dial} sky={getSky('daylight')} fill={fill} />)
+    const out = Array.from(container.querySelectorAll<SVGElement>('path, line, circle')).map((el) => el.style.fill || el.style.stroke)
+    unmount()
+    return out
+  }
+  for (const dial of ['sector', 'hairline', 'rays', 'orbit'] as const) {
+    it(`${dial}: hour only lights hour 10 alone; solid and accent fill 0 to 9`, () => {
+      expect(colours(dial, 'hour').filter((c) => c === 'var(--hour-fill)')).toHaveLength(1)
+      expect(colours(dial, 'solid').filter((c) => c === 'var(--hour-fill)')).toHaveLength(11)
+      const accent = colours(dial, 'accent')
+      expect(accent.filter((c) => c === 'var(--hour-fill)')).toHaveLength(10)
+      expect(accent.filter((c) => c === 'var(--hour-accent)')).toHaveLength(1)
+    })
+  }
+  it('lantern: hour only draws one lit wedge', () => {
+    const { container } = render(<DialArt dial="lantern" sky={getSky('daylight')} fill="hour" />)
+    const fills = Array.from(container.querySelectorAll('path')).map((p) => p.getAttribute('fill') ?? '')
+    expect(fills.filter((f) => /-lantern\)$/.test(f))).toHaveLength(0)
+    expect(fills.filter((f) => /-lantern-now\)$/.test(f))).toHaveLength(1)
+  })
 })

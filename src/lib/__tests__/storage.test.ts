@@ -15,7 +15,7 @@ function memoryStorage(): StorageLike & { data: Map<string, string> } {
 function populated(): AppState {
   return {
     ...initialState(),
-    settings: { themeOverride: 'dark', dayStart: 7, nightStart: 21, secondHand: 'tick', use24h: true, reduceMotion: 'on', defaultTimerSec: 600 },
+    settings: { themeOverride: 'dark', dayStart: 7, nightStart: 21, secondHand: 'tick', use24h: true, reduceMotion: 'on', defaultTimerSec: 600, clockFill: 'accent', lumensEnabled: true },
     quests: [{ id: 'a', title: 'Stretch', repeats: true, createdDay: '2026-09-10' }],
     completions: { '2026-09-17': ['a'] },
     ledger: [
@@ -73,7 +73,7 @@ describe('storage', () => {
       owned: { dials: ['orbit', 'bogus'], skies: 'tide' },
       equipped: { dial: 'hairline', sky: 'tide' },
     })
-    expect(state.settings).toEqual({ themeOverride: 'auto', dayStart: 6, nightStart: 20, secondHand: 'sweep', use24h: false, reduceMotion: 'system', defaultTimerSec: 1800 })
+    expect(state.settings).toEqual({ themeOverride: 'auto', dayStart: 6, nightStart: 20, secondHand: 'sweep', use24h: false, reduceMotion: 'system', defaultTimerSec: 1800, clockFill: 'blend', lumensEnabled: true })
     expect(state.quests).toEqual([{ id: 'a', title: 'ok', repeats: false, createdDay: '2026-09-17' }])
     expect(state.completions).toEqual({ '2026-09-17': ['a'] })
     expect(state.ledger).toEqual([{ id: 'z', at: 1, delta: -6, reason: 'unlock', ref: 'dial:orbit' }])
@@ -93,6 +93,45 @@ describe('storage', () => {
     expect(timer(629.9)).toBe(600)
     expect(timer('600')).toBe(1800)
     expect(timer(Number.NaN)).toBe(1800)
+  })
+
+  it('sanitizes Clock display: unknown or missing values become blend', () => {
+    const fill = (value: unknown) => sanitizeState({ settings: { clockFill: value } }).settings.clockFill
+    expect(sanitizeState({ settings: {} }).settings.clockFill).toBe('blend')
+    for (const mode of ['blend', 'hour', 'solid', 'accent']) expect(fill(mode)).toBe(mode)
+    expect(fill('rainbow')).toBe('blend')
+    expect(fill(2)).toBe('blend')
+    expect(fill(null)).toBe('blend')
+  })
+
+  it('sanitizes Lumens like use24h: anything but a boolean becomes on', () => {
+    const on = (value: unknown) => sanitizeState({ settings: { lumensEnabled: value } }).settings.lumensEnabled
+    expect(sanitizeState({ settings: {} }).settings.lumensEnabled).toBe(true)
+    expect(on(false)).toBe(false)
+    expect(on(true)).toBe(true)
+    expect(on('false')).toBe(true)
+    expect(on(0)).toBe(true)
+  })
+
+  it('keeps an unowned equipped item only while lumens are off, and never an unknown id', () => {
+    const raw = (lumensEnabled: boolean, equipped: unknown) => ({
+      settings: { lumensEnabled },
+      owned: { dials: ['lantern'], skies: ['daylight'] },
+      equipped,
+    })
+    expect(sanitizeState(raw(false, { dial: 'orbit', sky: 'tide' })).equipped).toEqual({ dial: 'orbit', sky: 'tide' })
+    expect(sanitizeState(raw(false, { dial: 'bogus', sky: 'nebula' })).equipped).toEqual({ dial: 'lantern', sky: 'daylight' })
+    expect(sanitizeState(raw(true, { dial: 'orbit', sky: 'tide' })).equipped).toEqual({ dial: 'lantern', sky: 'daylight' })
+    // owned is never widened by a free pick.
+    expect(sanitizeState(raw(false, { dial: 'orbit', sky: 'tide' })).owned).toEqual({ dials: ['lantern'], skies: ['daylight'] })
+  })
+
+  it('a reload while lumens are off keeps a free-equipped item', () => {
+    const s = memoryStorage()
+    const state: AppState = { ...initialState(), settings: { ...initialState().settings, lumensEnabled: false }, equipped: { dial: 'sector', sky: 'ember' } }
+    save(state, s)
+    expect(load(s).equipped).toEqual({ dial: 'sector', sky: 'ember' })
+    expect(load(s).owned).toEqual(initialState().owned)
   })
 
   it('refuses to migrate a newer schema', () => {

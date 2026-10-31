@@ -2,9 +2,9 @@ import { useEffect, useId, useState, type ReactNode } from 'react'
 import type { DialId } from '../../lib/dials'
 import { lapStops, type Sky } from '../../lib/skies'
 import { formatTime } from '../../lib/time'
-import type { SecondHandMode } from '../../state/types'
+import type { ClockFill, SecondHandMode } from '../../state/types'
 import { GLOW, HAIRLINE, HANDS, LANTERN, NUMERALS, ORBIT, RAYS, RING, TICKS } from './dialGeometry'
-import { currentFill, hourProgress, markFill, markState, type MarkState } from './fill'
+import { currentMarkFill, hourProgress, markFill, markLit, markState, modeFlashes, type MarkState } from './fill'
 import { CENTER, VIEWBOX, arcPath, continuousSecondDeg, handAngles, polar, sectionAngles, sectionForHour, strokeArcPath } from './geometry'
 import { lanternTint, ringTint } from './tint'
 
@@ -16,6 +16,8 @@ export type ClockProps = {
   /** True when the second hand should not sweep and the new-hour flash is skipped (reduced motion). */
   reduceMotion: boolean
   use24h: boolean
+  /** Clock display (Settings): how passed and current hours are shown. Default 'blend'. */
+  fill?: ClockFill
   /** Collection preview: decorative; the Sector preview drops numerals and minute ticks (§8). */
   preview?: boolean
   className?: string
@@ -36,18 +38,20 @@ type FaceProps = {
   hour: number
   use24h: boolean
   preview: boolean
-  /** Colour of the current mark (fill.ts currentFill). */
+  /** Colour of the current mark (fill.ts currentMarkFill). */
   current: string
+  fillMode: ClockFill
   flash: boolean
   onFlashEnd: () => void
 }
-type LitProps = Pick<FaceProps, 'lit' | 'flash' | 'onFlashEnd'>
+type LitProps = Pick<FaceProps, 'lit' | 'flash' | 'onFlashEnd' | 'fillMode'>
 
 /**
  * Everything drawn as "lit" is rendered once per section and shown by opacity (DESIGN.md §6).
  * mode 'fill' (the faces): passed and current marks are visible, so the lap fills hour by
- * hour and clears at 12:00 when `lit` wraps to 0. mode 'single' (the bloom): only the current
- * mark, so the glow still marks "now". The colours derive from the transitioning --hour, so
+ * hour and clears at 12:00 when `lit` wraps to 0. mode 'single' (the bloom, and the faces in
+ * Hour only): only the current mark, so at the top of the hour the old mark fades out while
+ * the new one fades in (the original handoff). The colours derive from the transitioning --hour, so
  * only opacity (and Orbit's scale) ever transitions. The layer as a whole fades in once at
  * load; marks never animate up from 12.
  */
@@ -102,10 +106,10 @@ function Bloom({ ids, lit, children }: { ids: Ids; lit: number; children: (i: nu
   )
 }
 
-/** The face's own lit layer: every passed hour plus the current one. */
-function FillLayer({ lit, flash, onFlashEnd, children }: LitProps & { children: (i: number, state: MarkState) => ReactNode }) {
+/** The face's own lit layer: every passed hour plus the current one, or the current one alone in Hour only. */
+function FillLayer({ lit, fillMode, flash, onFlashEnd, children }: LitProps & { children: (i: number, state: MarkState) => ReactNode }) {
   return (
-    <LitLayer lit={lit} mode="fill" className="clock-lit-layer" flash={flash} onFlashEnd={onFlashEnd}>
+    <LitLayer lit={lit} mode={fillMode === 'hour' ? 'single' : 'fill'} className="clock-lit-layer" flash={flash} onFlashEnd={onFlashEnd}>
       {children}
     </LitLayer>
   )
@@ -169,7 +173,7 @@ function Numerals({ radius, hour, use24h }: { radius: number; hour: number; use2
   )
 }
 
-function SectorFace({ lit, stops, ids, hour, use24h, preview, current, flash, onFlashEnd }: FaceProps) {
+function SectorFace({ lit, stops, ids, hour, use24h, preview, current, flash, onFlashEnd, fillMode }: FaceProps) {
   const wedge = (i: number) => {
     const a = sectionAngles(i, RING.gapDeg)
     return arcPath(C, C, RING.rOuter, RING.rInner, a.start, a.end)
@@ -185,7 +189,7 @@ function SectorFace({ lit, stops, ids, hour, use24h, preview, current, flash, on
           <path key={i} className="clock-section" data-section={i} d={wedge(i)} style={{ fill: ringTint(stops[i]) }} />
         ))}
       </g>
-      <FillLayer lit={lit} flash={flash} onFlashEnd={onFlashEnd}>
+      <FillLayer lit={lit} fillMode={fillMode} flash={flash} onFlashEnd={onFlashEnd}>
         {(i, state) => {
           const a = sectionAngles(i, RING.gapDeg)
           const fill = markFill(state, current)
@@ -216,7 +220,7 @@ function SectorFace({ lit, stops, ids, hour, use24h, preview, current, flash, on
   )
 }
 
-function HairlineFace({ lit, ids, hour, use24h, current, flash, onFlashEnd }: FaceProps) {
+function HairlineFace({ lit, ids, hour, use24h, current, flash, onFlashEnd, fillMode }: FaceProps) {
   const arc = (i: number) => {
     const a = sectionAngles(i)
     return strokeArcPath(C, C, HAIRLINE.ring, a.start + HAIRLINE.litInsetDeg, a.end - HAIRLINE.litInsetDeg)
@@ -228,7 +232,7 @@ function HairlineFace({ lit, ids, hour, use24h, current, flash, onFlashEnd }: Fa
       </Bloom>
       <circle className="clock-ring" cx={C} cy={C} r={HAIRLINE.ring} fill="none" stroke="var(--line-strong)" strokeWidth={HAIRLINE.ringWidth} />
       <Ticks minute={HAIRLINE.minuteTick} hour={HAIRLINE.hourTick} />
-      <FillLayer lit={lit} flash={flash} onFlashEnd={onFlashEnd}>
+      <FillLayer lit={lit} fillMode={fillMode} flash={flash} onFlashEnd={onFlashEnd}>
         {(i, state) => (
           <path className="clock-lit-arc" d={arc(i)} fill="none" style={{ stroke: markFill(state, current) }} strokeWidth={HAIRLINE.litWidth} strokeLinecap="round" />
         )}
@@ -238,7 +242,7 @@ function HairlineFace({ lit, ids, hour, use24h, current, flash, onFlashEnd }: Fa
   )
 }
 
-function RaysFace({ lit, ids, hour, use24h, current, flash, onFlashEnd }: FaceProps) {
+function RaysFace({ lit, ids, hour, use24h, current, flash, onFlashEnd, fillMode }: FaceProps) {
   const ray = (i: number) => {
     const { mid } = sectionAngles(i)
     const a = polar(C, C, RAYS.inner, mid)
@@ -264,7 +268,7 @@ function RaysFace({ lit, ids, hour, use24h, current, flash, onFlashEnd }: FacePr
           />
         ))}
       </g>
-      <FillLayer lit={lit} flash={flash} onFlashEnd={onFlashEnd}>
+      <FillLayer lit={lit} fillMode={fillMode} flash={flash} onFlashEnd={onFlashEnd}>
         {(i, state) => <line {...ray(i)} style={{ stroke: markFill(state, current) }} strokeWidth={RAYS.litWidth} strokeLinecap="round" />}
       </FillLayer>
       <Ticks minute={null} hour={TICKS.hour} />
@@ -273,7 +277,7 @@ function RaysFace({ lit, ids, hour, use24h, current, flash, onFlashEnd }: FacePr
   )
 }
 
-function LanternFace({ lit, stops, ids, hour, use24h, flash, onFlashEnd }: FaceProps) {
+function LanternFace({ lit, stops, ids, hour, use24h, flash, onFlashEnd, fillMode }: FaceProps) {
   const wedge = (i: number) => {
     const a = sectionAngles(i)
     return arcPath(C, C, LANTERN.rOuter, 0, a.start, a.end)
@@ -289,7 +293,7 @@ function LanternFace({ lit, stops, ids, hour, use24h, flash, onFlashEnd }: FaceP
         ))}
       </g>
       {/* Passed wedges use the lit gradient; the current one its own gradient in the blended colour. */}
-      <FillLayer lit={lit} flash={flash} onFlashEnd={onFlashEnd}>
+      <FillLayer lit={lit} fillMode={fillMode} flash={flash} onFlashEnd={onFlashEnd}>
         {(i, state) => <path className="clock-lit-wedge" d={wedge(i)} fill={`url(#${state === 'current' ? ids.lanternNow : ids.lantern})`} />}
       </FillLayer>
       <Ticks minute={TICKS.minute} hour={TICKS.hour} />
@@ -298,7 +302,7 @@ function LanternFace({ lit, stops, ids, hour, use24h, flash, onFlashEnd }: FaceP
   )
 }
 
-function OrbitFace({ lit, ids, current, flash, onFlashEnd }: FaceProps) {
+function OrbitFace({ lit, ids, current, flash, onFlashEnd, fillMode }: FaceProps) {
   const dot = (i: number) => polar(C, C, ORBIT.radius, sectionAngles(i).mid)
   return (
     <>
@@ -316,12 +320,12 @@ function OrbitFace({ lit, ids, current, flash, onFlashEnd }: FaceProps) {
         })}
       </g>
       {/* Each dot swells from the unlit size (r 5.5 → 9) as its hour arrives and stays swelled once
-          passed; only the current dot breathes. */}
-      <FillLayer lit={lit} flash={flash} onFlashEnd={onFlashEnd}>
+          passed (in Hour only it shrinks back as the next one swells); only the current dot breathes. */}
+      <FillLayer lit={lit} fillMode={fillMode} flash={flash} onFlashEnd={onFlashEnd}>
         {(i, state) => {
           const p = dot(i)
           return (
-            <g className="orbit-swell" style={{ transform: `scale(${state === 'future' ? ORBIT.dot / ORBIT.litDot : 1})` }}>
+            <g className="orbit-swell" style={{ transform: `scale(${markLit(state, fillMode) ? 1 : ORBIT.dot / ORBIT.litDot})` }}>
               <circle className={state === 'current' ? 'orbit-breathe' : undefined} cx={p.x} cy={p.y} r={ORBIT.litDot} style={{ fill: markFill(state, current) }} />
             </g>
           )
@@ -354,14 +358,18 @@ function Hand({ className, deg, length, tail, width, stroke }: { className: stri
  * StrictMode's double render and double effects see that same hour. Dial, sky and theme
  * changes do not touch the hour. The hour change is detected during render (React's "adjust
  * state when a prop changes" pattern) rather than in an effect, so there is no extra render
- * pass. Skipped entirely under reduced motion, in JS as well as CSS.
+ * pass. Skipped entirely under reduced motion, in JS as well as CSS, and in Hour only
+ * (`enabled` false), whose handoff already marks the new hour.
  */
-function useHourFlash(hour: number, reduceMotion: boolean): [boolean, () => void] {
+function useHourFlash(hour: number, reduceMotion: boolean, enabled: boolean): [boolean, () => void] {
   const [seen, setSeen] = useState(hour)
   const [flash, setFlash] = useState(false)
   if (seen !== hour) {
     setSeen(hour)
-    setFlash(!reduceMotion)
+    setFlash(!reduceMotion && enabled)
+  } else if (flash && (reduceMotion || !enabled)) {
+    // Cut short for good: switching back within the 1.4s must not replay it.
+    setFlash(false)
   }
 
   // Fallback for when animationend never fires (hidden tab, CSS not loaded).
@@ -371,16 +379,16 @@ function useHourFlash(hour: number, reduceMotion: boolean): [boolean, () => void
     return () => clearTimeout(t)
   }, [flash])
 
-  return [flash && !reduceMotion, () => setFlash(false)]
+  return [flash && !reduceMotion && enabled, () => setFlash(false)]
 }
 
-export function Clock({ now, dial, sky, secondHand, reduceMotion, use24h, preview = false, className }: ClockProps) {
+export function Clock({ now, dial, sky, secondHand, reduceMotion, use24h, fill = 'blend', preview = false, className }: ClockProps) {
   const id = useId()
   const ids: Ids = { near: `${id}-near`, far: `${id}-far`, lantern: `${id}-lantern`, lanternNow: `${id}-lantern-now` }
   const hour = now.getHours()
   const lit = sectionForHour(hour)
-  const current = currentFill(hourProgress(now))
-  const [flash, onFlashEnd] = useHourFlash(hour, reduceMotion)
+  const current = currentMarkFill(fill, hourProgress(now))
+  const [flash, onFlashEnd] = useHourFlash(hour, reduceMotion, modeFlashes(fill))
   const stops = lapStops(sky, hour)
   const sweep = secondHand === 'sweep' && !reduceMotion
   const angles = handAngles(now, sweep)
@@ -394,6 +402,7 @@ export function Clock({ now, dial, sky, secondHand, reduceMotion, use24h, previe
       viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}
       {...a11y}
       data-dial={dial}
+      data-fill={fill}
       data-second-hand={secondHand === 'hidden' ? 'hidden' : sweep ? 'sweep' : 'tick'}
       overflow="visible"
     >
@@ -413,7 +422,7 @@ export function Clock({ now, dial, sky, secondHand, reduceMotion, use24h, previe
           <stop offset="1" style={{ stopColor: current }} stopOpacity={0.85} />
         </radialGradient>
       </defs>
-      <Face lit={lit} stops={stops} ids={ids} hour={hour} use24h={use24h} preview={preview} current={current} flash={flash} onFlashEnd={onFlashEnd} />
+      <Face lit={lit} stops={stops} ids={ids} hour={hour} use24h={use24h} preview={preview} current={current} fillMode={fill} flash={flash} onFlashEnd={onFlashEnd} />
       <g className="clock-hands">
         <Hand className="clock-hand-hour" deg={angles.hour} {...HANDS.hour} stroke="var(--ink)" />
         <Hand className="clock-hand-minute" deg={angles.minute} {...HANDS.minute} stroke="var(--ink)" />

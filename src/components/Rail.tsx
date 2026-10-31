@@ -42,7 +42,7 @@ function SettingsIcon() {
 }
 
 export function Rail() {
-  const { ui } = useAppState()
+  const { ui, settings } = useAppState()
   const dispatch = useDispatch()
   const { balance } = useLumens()
   const panel = ui.panel
@@ -185,16 +185,19 @@ export function Rail() {
             </button>
           )
         })}
-        {/* The balance is the count with the rail's own lit dot above it, not a badge (§8, critique 02 n6). */}
-        <span
-          className="lumens mt-auto flex flex-col items-center gap-1.5 text-small leading-none font-medium tabular-nums text-slate"
-          title={lumenLabel}
-          aria-label={lumenLabel}
-          role="img"
-        >
-          <i className="lumen-dot block size-1 rounded-pill bg-hour-fill" aria-hidden="true" />
-          {balance}
-        </span>
+        {/* The balance is the count with the rail's own lit dot above it, not a badge (§8, critique 02 n6).
+            Lumens off: gone from the DOM, aria label and all. */}
+        {settings.lumensEnabled && (
+          <span
+            className="lumens mt-auto flex flex-col items-center gap-1.5 text-small leading-none font-medium tabular-nums text-slate"
+            title={lumenLabel}
+            aria-label={lumenLabel}
+            role="img"
+          >
+            <i className="lumen-dot block size-1 rounded-pill bg-hour-fill" aria-hidden="true" />
+            {balance}
+          </span>
+        )}
       </nav>
     </>
   )

@@ -2,7 +2,8 @@ import { useId } from 'react'
 import type { DialId } from '../../lib/dials'
 import { lapStops, type Sky } from '../../lib/skies'
 import { ART, GLOW } from './dialGeometry'
-import { currentFill, markFill, markState } from './fill'
+import type { ClockFill } from '../../state/types'
+import { currentMarkFill, markFill, markLit, markState } from './fill'
 import { CENTER, VIEWBOX, arcPath, polar, sectionAngles, strokeArcPath } from './geometry'
 import { lanternTint, ringTint } from './tint'
 
@@ -14,17 +15,22 @@ const ART_PROGRESS = 0.5
 /**
  * Collection art (DESIGN.md §8): the dial drawn straight on the glass at 64px, no tile,
  * filled to hour 10: hours 0 to 9 passed, hour 10 current with its near bloom copy only.
- * Heavier strokes than the clock (ART).
+ * Heavier strokes than the clock (ART). Follows the Clock display setting: in Hour only the
+ * passed hours are drawn unlit.
  */
-export function DialArt({ dial, sky }: { dial: DialId; sky: Sky }) {
+export function DialArt({ dial, sky, fill: mode = 'blend' }: { dial: DialId; sky: Sky; fill?: ClockFill }) {
   const id = useId()
   const near = `${id}-near`
   const grad = `${id}-lantern`
   const gradNow = `${id}-lantern-now`
   const stops = lapStops(sky, ART.litHour)
   const lit = ART.litHour % 12
-  const current = currentFill(ART_PROGRESS)
-  const state = (i: number) => markState(i, lit)
+  const current = currentMarkFill(mode, ART_PROGRESS)
+  // Unlit marks read as 'future' so every branch below draws them in its unlit style.
+  const state = (i: number) => {
+    const s = markState(i, lit)
+    return markLit(s, mode) ? s : 'future'
+  }
   const fill = (i: number) => markFill(state(i), current)
   const bloom = { filter: `url(#${near})`, style: { opacity: 'var(--glow-near)' } }
 
@@ -141,7 +147,7 @@ export function DialArt({ dial, sky }: { dial: DialId; sky: Sky }) {
   }
 
   return (
-    <svg className="art block size-16 flex-none" viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`} overflow="visible" aria-hidden="true" data-art={dial}>
+    <svg className="art block size-16 flex-none" viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`} overflow="visible" aria-hidden="true" data-art={dial} data-fill={mode}>
       <defs>
         <filter id={near} x="-40%" y="-40%" width="180%" height="180%">
           <feGaussianBlur stdDeviation={GLOW.near} />

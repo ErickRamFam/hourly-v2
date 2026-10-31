@@ -17,10 +17,10 @@ const FLOAT_MS = 900
 
 type Preview = { quest: number; cleanDay: boolean }
 /** One message at a time in the log head's toast slot; `removed` makes it the undo toast. */
-type Toast = { key: number; text: string; removed?: RemovedQuest }
+type Toast = { key: number; text: string; removed?: RemovedQuest; cleanDay?: boolean }
 
 export function QuestLog({ today }: { today: string }) {
-  const { quests, completions, ledger } = useAppState()
+  const { quests, completions, ledger, settings } = useAppState()
   const dispatch = useDispatch()
   const [title, setTitle] = useState('')
   const [repeats, setRepeats] = useState(false)
@@ -128,13 +128,14 @@ export function QuestLog({ today }: { today: string }) {
       return
     }
     setJustChecked(id)
-    if (award && award.quest > 0) {
+    // Lumens off: they are still earned in the ledger, silently, so no "+1" and no "+2 lumens".
+    if (award && award.quest > 0 && settings.lumensEnabled) {
       floatKey.current += 1
       setFloat({ id, key: floatKey.current })
       later(() => setFloat((f) => (f && f.id === id ? null : f)), FLOAT_MS)
     }
     if (award && award.cleanDay) {
-      showToast({ text: 'A clean day. +2 lumens.' }, TOAST_MS)
+      showToast({ text: '', cleanDay: true }, TOAST_MS)
     }
   }
 
@@ -171,6 +172,8 @@ export function QuestLog({ today }: { today: string }) {
 
   const onEditKey = (e: KeyboardEvent<HTMLInputElement>, id: string) => {
     if (e.key !== 'Enter' && e.key !== 'Escape') return
+    // Enter or Escape that ends an IME composition belongs to the composition, not the edit.
+    if (e.nativeEvent.isComposing) return
     e.preventDefault()
     // Rail closes panels on a document Escape; here Escape only cancels the edit.
     if (e.key === 'Escape') e.stopPropagation()
@@ -210,7 +213,13 @@ export function QuestLog({ today }: { today: string }) {
             {progress.total === 0 ? '' : cleared ? 'Cleared.' : `${progress.done} of ${progress.total}`}
           </span>
           <span className={`toast-slot col-start-1 row-start-1 text-hour-ink transition-opacity duration-200 ${toast ? 'opacity-100' : 'opacity-0'}`} role="status">
-            {toast?.text ?? ''}
+            {/* Keyed, so the same text twice ("Removed." again) is a new node and is announced again.
+                The clean-day text is worked out here, so it follows Lumens being turned off. */}
+            {toast && (
+              <span key={toast.key} className="toast-text">
+                {toast.cleanDay ? (settings.lumensEnabled ? 'A clean day. +2 lumens.' : 'A clean day.') : toast.text}
+              </span>
+            )}
             {toast?.removed && (
               <>
                 {' '}
@@ -273,7 +282,7 @@ export function QuestLog({ today }: { today: string }) {
                       />
                     </svg>
                   </button>
-                  {float && float.id === q.id && (
+                  {float && float.id === q.id && settings.lumensEnabled && (
                     <span key={float.key} className="lumen-float lumen-rise" aria-hidden="true">
                       +1
                     </span>

@@ -22,6 +22,7 @@
   --color-glass: var(--glass);
   --color-hour: var(--hour);
   --color-hour-fill: var(--hour-fill);
+  --color-hour-accent: var(--hour-accent);
   --color-danger: var(--danger);
   --color-hour-soft: var(--hour-soft);
   --color-hour-glow: var(--hour-glow);
@@ -108,6 +109,9 @@
   --hour-fill: color-mix(in oklab, var(--hour-lit, var(--hour)) 62%, var(--ink)); /* fallback; see @supports below */
   /* The next hour through the same lit-fill rule: the tip of the timer bar. */
   --hour-fill-next: color-mix(in oklab, var(--hour-lit-next, var(--hour-next)) 62%, var(--ink));
+  /* Clock display "Accent": the current hour in its own colour. Fallback only darkens (no hue
+     turn without relative colour); see @supports below. */
+  --hour-accent: color-mix(in oklab, var(--hour-fill) 60%, black);
   --hour-glow: color-mix(in oklab, var(--hour) 26%, white);   /* halo: a whiter spot on the page */
   --hour-bloom: color-mix(in oklab, var(--hour) 50%, white); /* wedge glow: light, not a coloured shadow */
   --hour-soft: color-mix(in oklab, var(--hour) 34%, transparent);
@@ -159,6 +163,10 @@
       calc(h - clamp(0, h - 80, 35) + clamp(0, h - 115, 35)));
     --hour-fill-next: oklch(from var(--hour-lit-next, var(--hour-next)) min(l, 0.56) max(c, 0.12)
       calc(h - clamp(0, h - 80, 35) + clamp(0, h - 115, 35)));
+    /* Accent (DESIGN.md §6, Clock display): the fill turned 50deg back round the wheel, chroma
+       at or above the fill's, 0.15 darker (0.2 to 0.42), so it holds >= 3:1 on the ring and
+       >= 1.5:1 off the passed fill at every hour of every sky (clock/contrast.ts checks it). */
+    --hour-accent: oklch(from var(--hour-fill) clamp(0.2, calc(l - 0.15), 0.42) max(c, 0.12) calc(h - 50));
   }
 }
 
@@ -180,6 +188,7 @@
 
   --hour-fill: var(--hour-lit, var(--hour));
   --hour-fill-next: var(--hour-lit-next, var(--hour-next));
+  --hour-accent: color-mix(in oklab, var(--hour-fill) 45%, white);
   --hour-glow: color-mix(in oklab, var(--hour) 70%, white 6%);
   --hour-bloom: var(--hour-glow);
   --hour-soft: color-mix(in oklab, var(--hour) 40%, transparent);
@@ -220,6 +229,8 @@
   [data-theme="dark"] {
     --hour-fill: oklch(from var(--hour-lit, var(--hour)) max(l, 0.74) c h);
     --hour-fill-next: oklch(from var(--hour-lit-next, var(--hour-next)) max(l, 0.74) c h);
+    /* Accent in the dark: the same hue turn, 0.2 lighter (cap 0.99), the brightest mark on the ring. */
+    --hour-accent: oklch(from var(--hour-fill) min(0.99, calc(l + 0.2)) max(c, 0.12) calc(h - 50));
   }
 }
 
@@ -240,6 +251,7 @@
     --danger: #ff8a80;
     --hour-fill: var(--hour-lit, var(--hour));
     --hour-fill-next: var(--hour-lit-next, var(--hour-next));
+    --hour-accent: color-mix(in oklab, var(--hour-fill) 45%, white);
     --hour-glow: color-mix(in oklab, var(--hour) 70%, white 6%);
     --hour-bloom: var(--hour-glow);
     --hour-soft: color-mix(in oklab, var(--hour) 40%, transparent);
@@ -278,6 +290,7 @@
     :root:not([data-theme="light"]):not([data-theme="dark"]) {
       --hour-fill: oklch(from var(--hour-lit, var(--hour)) max(l, 0.74) c h);
       --hour-fill-next: oklch(from var(--hour-lit-next, var(--hour-next)) max(l, 0.74) c h);
+      --hour-accent: oklch(from var(--hour-fill) min(0.99, calc(l + 0.2)) max(c, 0.12) calc(h - 50));
     }
   }
 }
