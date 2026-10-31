@@ -122,6 +122,94 @@ describe('equip', () => {
   })
 })
 
+describe('Clock display setting', () => {
+  it('defaults to blend and accepts only the four modes', () => {
+    expect(initialState().settings.clockFill).toBe('blend')
+    for (const clockFill of ['hour', 'solid', 'accent', 'blend'] as const) {
+      expect(run([{ type: 'updateSettings', patch: { clockFill } }]).settings.clockFill).toBe(clockFill)
+    }
+    const bogus = { clockFill: 'rainbow' } as unknown as Partial<AppState['settings']>
+    expect(run([{ type: 'updateSettings', patch: bogus }]).settings.clockFill).toBe('blend')
+  })
+})
+
+describe('Lumens setting', () => {
+  const off = (s: AppState = initialState()) => reducer(s, { type: 'updateSettings', patch: { lumensEnabled: false } })
+  const on = (s: AppState) => reducer(s, { type: 'updateSettings', patch: { lumensEnabled: true } })
+
+  it('defaults to on and accepts only booleans', () => {
+    expect(initialState().settings.lumensEnabled).toBe(true)
+    expect(off().settings.lumensEnabled).toBe(false)
+    const bogus = { lumensEnabled: 'no' } as unknown as Partial<AppState['settings']>
+    expect(reducer(off(), { type: 'updateSettings', patch: bogus }).settings.lumensEnabled).toBe(false)
+  })
+
+  it('on: equipping a locked item is rejected (the original rule)', () => {
+    const s = initialState()
+    expect(reducer(s, { type: 'equip', kind: 'dial', id: 'orbit' })).toBe(s)
+    expect(reducer(s, { type: 'equip', kind: 'sky', id: 'tide' })).toBe(s)
+  })
+
+  it('off: equips a locked item without touching owned or the ledger', () => {
+    const s = off(earn(initialState(), 1))
+    const after = reducer(reducer(s, { type: 'equip', kind: 'dial', id: 'orbit' }), { type: 'equip', kind: 'sky', id: 'tide' })
+    expect(after.equipped).toEqual({ dial: 'orbit', sky: 'tide' })
+    expect(after.owned).toBe(s.owned)
+    expect(after.ledger).toBe(s.ledger)
+    // Unknown ids are still refused.
+    expect(reducer(after, { type: 'equip', kind: 'dial', id: 'bogus' })).toBe(after)
+  })
+
+  it('off: nothing can be bought', () => {
+    const s = off(earn(initialState(), 4))
+    expect(reducer(s, { type: 'unlock', kind: 'dial', id: 'hairline', now: NOON })).toBe(s)
+  })
+
+  it('turning off never changes owned or equipped', () => {
+    const s = reducer(reducer(earn(initialState(), 2), { type: 'unlock', kind: 'dial', id: 'hairline', now: NOON }), { type: 'equip', kind: 'dial', id: 'hairline' })
+    const after = off(s)
+    expect(after.owned).toBe(s.owned)
+    expect(after.equipped).toBe(s.equipped)
+    expect(after.ledger).toBe(s.ledger)
+  })
+
+  it('keeps earning in the ledger while off, so the balance is right after turning on', () => {
+    const s = earn(off(), 2)
+    expect(selectLumens(s)).toBe(6)
+    expect(selectLumens(on(s))).toBe(6)
+    expect(on(s).ledger).toBe(s.ledger)
+  })
+
+  it('off then on resets an unbought dial and an unbought sky to the defaults', () => {
+    let s = off()
+    s = reducer(reducer(s, { type: 'equip', kind: 'dial', id: 'orbit' }), { type: 'equip', kind: 'sky', id: 'graphite' })
+    const after = on(s)
+    expect(after.equipped).toEqual({ dial: 'lantern', sky: 'daylight' })
+    expect(after.owned).toBe(s.owned)
+  })
+
+  it('off then on keeps a bought dial equipped', () => {
+    let s = reducer(earn(initialState(), 2), { type: 'unlock', kind: 'dial', id: 'hairline', now: NOON })
+    s = reducer(s, { type: 'equip', kind: 'dial', id: 'hairline' })
+    s = reducer(off(s), { type: 'equip', kind: 'sky', id: 'tide' })
+    const after = on(s)
+    expect(after.equipped).toEqual({ dial: 'hairline', sky: 'daylight' })
+  })
+
+  it('off then on with a free item equipped keeps a bought one owned', () => {
+    let s = reducer(earn(initialState(), 2), { type: 'unlock', kind: 'dial', id: 'hairline', now: NOON })
+    s = reducer(off(s), { type: 'equip', kind: 'dial', id: 'orbit' })
+    const after = on(s)
+    expect(after.equipped.dial).toBe('lantern')
+    expect(after.owned.dials).toEqual(['lantern', 'hairline'])
+    expect(reducer(after, { type: 'equip', kind: 'dial', id: 'hairline' }).equipped.dial).toBe('hairline')
+  })
+
+  it('clear all data turns lumens back on', () => {
+    expect(reducer(off(), { type: 'clearAll' }).settings.lumensEnabled).toBe(true)
+  })
+})
+
 describe('settings and ui', () => {
   it('applies valid patches and drops out-of-range hours', () => {
     const s = run([{ type: 'updateSettings', patch: { themeOverride: 'dark', dayStart: 25, nightStart: 22, use24h: true } }])

@@ -20,6 +20,8 @@ export type TimerPhase = 'idle' | 'running' | 'paused' | 'done'
 export const DONE_MS = 2400
 export const DONE_REDUCED_MS = 1000
 export const TIME_UP = 'Time is up'
+/** At time up, a beep further than this ahead on the audio clock is stale and dropped. */
+const FINISH_GRACE_S = 1
 
 export type TimerOptions = {
   /** Length the P key starts with no timer (Settings → Default timer). */
@@ -150,8 +152,10 @@ export function useTimer({ defaultMs, reduceMotion, storage = defaultTimerStorag
     }
   }
 
-  // The beep was booked on the audio clock at start, so finishing never plays a sound.
+  // The beep was booked on the audio clock at start, so finishing never plays a sound. It does
+  // drop a beep the audio clock is still far from (slept or suspended), so it cannot sound later.
   const finish = () => {
+    beeper.cancelPending(FINISH_GRACE_S)
     commit(null)
     setFrozen(false)
     setEdit(false)
@@ -299,7 +303,8 @@ export function useTimer({ defaultMs, reduceMotion, storage = defaultTimerStorag
   }, [done, reduceMotion])
 
   // After a reload the timer runs but no AudioContext exists (it needs a gesture): book the
-  // beep on the first pointerdown or keydown.
+  // beep on the first gesture. A touch pointerdown is not a user activation (only a mouse one
+  // is), so pointerup and touchend are listened for too; schedule() replaces, so repeats are safe.
   useEffect(() => {
     if (!running) return
     const onGesture = () => {
@@ -308,11 +313,10 @@ export function useTimer({ defaultMs, reduceMotion, storage = defaultTimerStorag
       if (!beeper.prepare()) return
       beeper.schedule(remainingMs(t, Date.now()))
     }
-    window.addEventListener('pointerdown', onGesture, true)
-    window.addEventListener('keydown', onGesture, true)
+    const events = ['pointerdown', 'pointerup', 'touchend', 'keydown'] as const
+    for (const e of events) window.addEventListener(e, onGesture, true)
     return () => {
-      window.removeEventListener('pointerdown', onGesture, true)
-      window.removeEventListener('keydown', onGesture, true)
+      for (const e of events) window.removeEventListener(e, onGesture, true)
     }
   }, [running, beeper])
 

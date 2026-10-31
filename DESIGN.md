@@ -89,6 +89,7 @@ stop), and for the Graphite sky only `--hour-lit` and `--hour-lit-next` (the Day
 | `--hour`      | ramp hex | same | aurora, source for all below |
 | `--hour-fill` | lit-fill rule below; fallback without relative color: `color-mix(in oklab, hour 62%, ink)` (all 24 stops ≥ 3.1:1) | `oklch(from var(--hour-lit, var(--hour)) max(l, .74) c h)`; fallback `var(--hour-lit, var(--hour))` | **everything drawn as lit**: wedge, second hand, cap ring, checked box, seven-day discs, active rail dot, lumen ring, equipped dot, segmented underline |
 | `--hour-fill-next` | the lit-fill rule on `--hour-lit-next, --hour-next` | same as `--hour-fill`, next hour | the tip of the timer bar (§6, Timer) |
+| `--hour-accent` | `oklch(from var(--hour-fill) clamp(.2, l − .15, .42) max(c, .12) h − 50)`; fallback `color-mix(in oklab, --hour-fill 60%, black)` | `oklch(from var(--hour-fill) min(.99, l + .2) max(c, .12) h − 50)`; fallback `--hour-fill 45%, white` | the current hour in the Accent clock display (§6) |
 | `--hour-glow` | `color-mix(in oklab, hour 26%, white)` | `hour 70%, white 6%` | halo |
 | `--hour-bloom`| `color-mix(in oklab, hour 50%, white)` | `= --hour-glow` | the two blurred copies around the lit mark |
 | `--hour-soft` | `hour 34%, transparent` | `hour 40%, transparent` | glow shadow on rail dot and underline, today ring |
@@ -308,7 +309,39 @@ min(440px, 52vh)))`; at ≥1600w and ≥960h the 440 becomes 480; at ≤760 `min
   (at 12:00 the lap's marks fade out together); halo, aurora, and every `--hour-*` follow via
   a 1200ms transition. If the hour turns while the app is open, the new current mark pulses
   softly twice (`hour-flash`, opacity 1 → .45 → 1 twice, 1400ms `--ease-glide`). Never on
-  load, reload, or a dial, sky or theme change; never under reduced motion.
+  load, reload, or a dial, sky, theme or Clock display change; never under reduced motion.
+- **Clock display** (Settings, `settings.clockFill`, default Blend). Four ways to show the
+  same time-derived state; all five dials support all four, each in its own style, and the
+  64px Collection art and the 168px preview follow the setting. Blooms stay under the
+  current mark in every mode. The timer is never affected.
+  - *Blend* (`blend`): everything above. Passed hours in `--hour-fill`, the current hour
+    lighter and deepening into it over the hour, a flash at the new hour.
+  - *Hour only* (`hour`): the original single lit hour. Only the current mark is lit, at
+    full `--hour-fill` from the start (no blend). Passed hours stay unlit. At the top of the
+    hour the old mark fades out while the new one fades in (the original opacity crossfade),
+    and that handoff is the cue, so there is no flash. Orbit: only the current dot is
+    swelled and breathing; the others are small.
+  - *Solid* (`solid`): filled like Blend, but the current hour is `--hour-fill` from :00, the
+    same colour as the passed hours. No blend, no lighter start. Flash kept.
+  - *Accent* (`accent`): filled like Blend, passed hours in `--hour-fill`, the current hour
+    in `--hour-accent`: the fill turned 50° back round the wheel (golds to coral, blues to
+    violet), chroma at or above the fill's, and darker in light (l − .15, kept to .2–.42) or
+    lighter in dark (l + .2, cap .99). Flash kept. Derived from the theme and sky, never a
+    fixed hex; Graphite takes it from its Daylight lit colour, so it stays coloured.
+    Measured by `clock/contrast.ts` (unit-tested, 24 hours × 4 skies × light and dark, on
+    the bare page and under the halo at the ring): ≥ 3:1 against the unlit ring and ≥ 1.5:1
+    against the passed fill everywhere in light and at every dark hour except 13 around
+    midday (Daylight and Graphite 12–14, Ember 11–13, Tide 11–14). There the dark lit-fill is
+    pale (l .8–.89) and the dark halo bright, so at the rule's turned hue and chroma floor no
+    lightness meets both floors; only a near-white at another hue could, which is no longer
+    a colour. The accent still sits lightest on the ring there. The model measures the Sector
+    ring (opaque marks); Lantern's gradients converge toward the centre, so the rim is what
+    reads. In dark the accent is pale: at l .94–.99 sRGB holds little chroma, so it reads as
+    a tinted, near-white hour (a colourful cap such as l + .16, max .92, would drop 30 of the
+    96 dark cases below 1.5:1). At the top of the hour the old current mark changes colour
+    to the passed fill at once while the new one fades in; the flash covers the change. The original goal of 3:1 against the passed fill
+    as well cannot be met: in dark the fill is already l ≥ .74, so a 3:1 step up would be
+    brighter than white.
 
 Dial variants (same glow stack: near + far bloom copies under the current mark). Each fills in
 its own way; only Lantern fills with wedges from the centre:
@@ -405,7 +438,10 @@ own storage key. The clock never changes because of the timer.
 - **Persistence:** `hourly.timer.v1` holds `{ status: "running", endsAt, totalMs }` or
   `{ status: "paused", remainingMs, totalMs }`; remaining is always read from `endsAt`, so
   throttled background tabs never drift. A reload resumes; a timer that ended while the tab
-  was closed is cleared silently. Clear all data removes it and stops the timer. While
+  was closed is cleared silently. The freeze while the field is open is stored as paused, so
+  a reload with the field open comes back paused, not running. At time up a beep the audio
+  clock is still more than 1s from (the machine slept, the context was suspended) is dropped,
+  so it can never sound later. Clear all data removes it and stops the timer. While
   running the tab title reads "14:32 · Hourly".
 
 ## 7. Layout
@@ -480,7 +516,8 @@ Collection, a circle r 8.5 with a 3px `--hour-fill` arc from 10 to 11 o'clock (3
 and a 1.5 dot at radius 4, 315° (a dial and its lit hour); Settings, three lines with
 knobs at 9/15/8. Lumen balance at the bottom: not a badge. The count
 in 13/500 tabular `slate`, with the rail's own 4px `--hour-fill` lit dot 6px above it
-(`box-shadow: 0 0 8px --hour-soft`); tooltip "12 lumens".
+(`box-shadow: 0 0 8px --hour-soft`); tooltip "12 lumens". With Lumens off the balance is
+removed from the DOM (count, dot and its accessible name).
 
 **Panel.** Fixed `top:12; bottom:12; right:64`, 380 wide, radius `22 0 0 22`, padding
 24 28 28, `glass`, scrolls with no visible scrollbar, flex column. Head: serif 26 title,
@@ -513,13 +550,23 @@ margin 28 0 6, padding-top 14, `border-top: 1px line`.
 - *States:* owned → "Equip" in `--hour-ink`; equipped → 5px `--hour-fill` dot + "Equipped"
   `slate`; locked → art/strip at .55 opacity, price "8 lumens" small `pewter`, "Buy" in
   `--hour-ink` only when affordable. No badges, no lock icons.
+- *Lumens off* (Settings): no balance sentence, no "whole collection" line, no prices, no
+  Buy, no locked styling: every dial and sky that is not equipped shows "Equip". Equipping
+  one sets `equipped` only. `owned` and the ledger stay the record of what was bought, and
+  lumens keep being earned silently. Turning Lumens back on puts an equipped dial or sky that
+  was never bought back to Lantern / Daylight; bought items stay owned and equipped.
 
 **Settings.** Rows: min-height 56, padding 8 0, `border-top: 1px line` (none on the
 first); label body `ink` left, control right.
-- *Segmented choice* (Theme, Second hand, Clock labels, Reduce motion): options as plain
+- *Segmented choice* (Theme, Second hand, Clock labels, Clock display, Reduce motion, Lumens): options as plain
   text 15/500 `slate`, 18px apart, padding 4 0 8. Selected: `ink` with a 2px
   `--hour-fill` underline (radius 999, `0 0 8px --hour-soft`), class `.lit-underline`.
   No track, no pill, no thumb, no shadow. Reduce motion is "Off / On" in the same control.
+  Rows wrap: a control too wide to sit beside its label (Clock display's four options at
+  360px) drops under it, left-aligned, and its options wrap. A helper line, small `slate`,
+  sits under the row: Clock display always (describing the selected mode), Lumens only
+  while Off. Order: Theme, Day begins, Night begins, Default timer, Second hand, Clock
+  labels, Clock display, Reduce motion, Lumens.
 - *Stepper* (Day begins, Night begins, Default timer): 36px tall, radius 10, `inset 0 0 0 1px
   line-strong`; "−" and "+" 32×36 in `slate` 18px; value 56px min, tabular 15/500; steps
   by one hour. The value follows Clock labels: "6 am" / "7 pm" in 12h, "6:00" / "19:00" in
@@ -547,7 +594,7 @@ with no history: outlines only.
 | settle | 320ms | check-off, panel-in, row remove |
 | slow | 600ms | hour word crossfade |
 | dawn | 1200ms | new hour joins the fill, 12:00 clear, `--hour` recolor, load |
-| hour flash | 1400ms | two soft pulses on the new current mark, `--ease-glide` |
+| hour flash | 1400ms | two soft pulses on the new current mark, `--ease-glide`; Blend, Solid and Accent only (Hour only hands off by crossfade) |
 | timer pulse | 1600ms | paused timer label, infinite, `--ease-glide` |
 | timer done | 2400ms | three fades of the full timer ring at 0:00, `--ease-dawn` |
 | `--ease-settle` | `cubic-bezier(.25,1,.5,1)` | arrivals |
@@ -598,6 +645,7 @@ Quest log: title "Today's log"; count "2 of 5"; all done "Cleared."; empty "Noth
 log yet."; placeholder "Add a quest"; chip "Repeats daily"; row meta "repeats daily"; row
 actions "Edit" and "Remove" (screen readers: "Edit Water the plants", "Remove Water the
 plants"); edit field "Edit quest title"; lumen float "+1"; clean-day toast "A clean day. +2 lumens."
+(Lumens off: no float, toast "A clean day.")
 
 Timer: idle "00:00"; screen-reader names "Timer, 00:00. Press to set a time", "Timer, 14:32
 left. Press to edit", "Timer paused, 14:32 left. Press to edit"; toggle slot "Pause timer" /
@@ -608,9 +656,14 @@ and seconds"; at the end "Time is up" (status region and system notification); t
 Rail tooltips: "Today", "Collection", "Settings", "12 lumens".
 
 Settings: title "Settings"; rows "Theme" (Auto / Light / Dark), "Day begins", "Night
-begins", "Default timer" (1:00 to 60:00), "Second hand" (Sweep / Tick / Hidden), "Clock labels" (12h / 24h), "Reduce motion"
-(Off / On); button "Clear all data"; dialog title "Clear all data?", body "Quests, lumens,
-and your collection will be removed from this browser.", buttons "Cancel" / "Clear
+begins", "Default timer" (1:00 to 60:00), "Second hand" (Sweep / Tick / Hidden), "Clock labels" (12h / 24h), "Clock display"
+(Blend / Hour only / Solid / Accent; helper under the row: "Each hour fills in, and the
+current hour fades into the fill." / "Only the current hour is lit." / "Each hour fills in as
+one solid color." / "The current hour stands out in its own color."), "Reduce motion"
+(Off / On), "Lumens" (On / Off; helper while Off: "Everything in your collection is unlocked.");
+button "Clear all data"; dialog title "Clear all data?", body "Quests, lumens,
+and your collection will be removed from this browser." (Lumens off: "Quests and your
+collection will be removed from this browser."), buttons "Cancel" / "Clear
 everything". Stepper buttons are labelled "Earlier" / "Later" for screen readers; the Default
 timer stepper's are "Shorter" / "Longer".
 

@@ -3,7 +3,7 @@ import { rovingIndex } from '../lib/roving'
 import { MAX_TIMER_SEC, MIN_TIMER_SEC } from '../lib/storage'
 import { formatHourStop } from '../lib/time'
 import { useTimerContext } from '../state/timerContext'
-import type { ReduceMotion, SecondHandMode, Settings, ThemeOverride } from '../state/types'
+import type { ClockFill, ReduceMotion, SecondHandMode, Settings, ThemeOverride } from '../state/types'
 import { useAppState, useDispatch } from '../state/useStore'
 import { ConfirmDialog } from './ConfirmDialog'
 
@@ -12,8 +12,10 @@ import { ConfirmDialog } from './ConfirmDialog'
  * A radiogroup is one tab stop: only the checked option is tabbable, arrows move the
  * selection and focus together (roving tabindex), Home/End jump to the ends.
  */
-function Choice<T extends string>({ label, value, options, onChange }: {
+function Choice<T extends string>({ label, value, options, onChange, describedBy }: {
   label: string
+  /** Id of the row's helper line, read out with the group. */
+  describedBy?: string
   value: T
   options: readonly { value: T; label: string }[]
   onChange: (value: T) => void
@@ -28,7 +30,7 @@ function Choice<T extends string>({ label, value, options, onChange }: {
     refs.current[next]?.focus()
   }
   return (
-    <div className="seg flex gap-[18px]" role="radiogroup" aria-label={label} onKeyDown={onKeyDown}>
+    <div className="seg flex flex-wrap gap-x-[18px] gap-y-1" role="radiogroup" aria-label={label} aria-describedby={describedBy} onKeyDown={onKeyDown}>
       {options.map((o, i) => {
         const on = i === current
         return (
@@ -93,16 +95,32 @@ function MinuteStepper({ labelId, value, onChange }: { labelId: string; value: n
   )
 }
 
-function Row({ label, labelId, children }: { label: string; labelId?: string; children: React.ReactNode }) {
+/**
+ * A settings row. It wraps: a control too wide to sit beside its label drops under it (the
+ * four Clock display options at 360px), and `helper` is one small line under the row.
+ */
+function Row({ label, labelId, helper, helperId, children }: { label: string; labelId?: string; helper?: string; helperId?: string; children: React.ReactNode }) {
   return (
-    <li className="srow flex min-h-14 items-center justify-between gap-4 border-t border-line py-2">
+    <li className="srow flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-t border-line py-2">
       <span id={labelId} className="text-body text-ink">
         {label}
       </span>
       {children}
+      {helper && (
+        <p id={helperId} className="srow-helper m-0 basis-full pb-1 text-small text-slate">
+          {helper}
+        </p>
+      )}
     </li>
   )
 }
+
+const CLOCK_FILL_OPTIONS: readonly { value: ClockFill; label: string; helper: string }[] = [
+  { value: 'blend', label: 'Blend', helper: 'Each hour fills in, and the current hour fades into the fill.' },
+  { value: 'hour', label: 'Hour only', helper: 'Only the current hour is lit.' },
+  { value: 'solid', label: 'Solid', helper: 'Each hour fills in as one solid color.' },
+  { value: 'accent', label: 'Accent', helper: 'The current hour stands out in its own color.' },
+]
 
 export function SettingsPanel() {
   const { settings } = useAppState()
@@ -112,6 +130,8 @@ export function SettingsPanel() {
   const dayId = useId()
   const nightId = useId()
   const timerId = useId()
+  const fillHelpId = useId()
+  const lumensHelpId = useId()
   const set = (patch: Partial<Settings>) => dispatch({ type: 'updateSettings', patch })
 
   return (
@@ -161,6 +181,15 @@ export function SettingsPanel() {
             onChange={(v) => set({ use24h: v === '24h' })}
           />
         </Row>
+        <Row label="Clock display" helper={CLOCK_FILL_OPTIONS.find((o) => o.value === settings.clockFill)?.helper} helperId={fillHelpId}>
+          <Choice<ClockFill>
+            label="Clock display"
+            value={settings.clockFill}
+            options={CLOCK_FILL_OPTIONS}
+            describedBy={fillHelpId}
+            onChange={(clockFill) => set({ clockFill })}
+          />
+        </Row>
         <Row label="Reduce motion">
           <Choice<ReduceMotion>
             label="Reduce motion"
@@ -170,6 +199,18 @@ export function SettingsPanel() {
               { value: 'on', label: 'On' },
             ]}
             onChange={(reduceMotion) => set({ reduceMotion })}
+          />
+        </Row>
+        <Row label="Lumens" helper={settings.lumensEnabled ? undefined : 'Everything in your collection is unlocked.'} helperId={lumensHelpId}>
+          <Choice<'on' | 'off'>
+            label="Lumens"
+            describedBy={settings.lumensEnabled ? undefined : lumensHelpId}
+            value={settings.lumensEnabled ? 'on' : 'off'}
+            options={[
+              { value: 'on', label: 'On' },
+              { value: 'off', label: 'Off' },
+            ]}
+            onChange={(v) => set({ lumensEnabled: v === 'on' })}
           />
         </Row>
       </ul>
@@ -186,7 +227,11 @@ export function SettingsPanel() {
       {confirming && (
         <ConfirmDialog
           title="Clear all data?"
-          body="Quests, lumens, and your collection will be removed from this browser."
+          body={
+            settings.lumensEnabled
+              ? 'Quests, lumens, and your collection will be removed from this browser.'
+              : 'Quests and your collection will be removed from this browser.'
+          }
           confirmLabel="Clear everything"
           onCancel={() => setConfirming(false)}
           onConfirm={() => {

@@ -1,8 +1,10 @@
 /**
  * Hour-by-hour fill (DESIGN.md §6). Derived only from the current time: passed hours of the
  * lap stay lit, the current hour blends from a lighter tint into --hour-fill over the hour,
- * future hours stay unlit. Nothing here reads history or stored state.
+ * future hours stay unlit. Nothing here reads history or stored state. The Clock display
+ * setting picks one of four ways to show it (ClockFill).
  */
+import type { ClockFill } from '../../state/types'
 
 export type MarkState = 'passed' | 'current' | 'future'
 
@@ -30,4 +32,23 @@ export function currentFill(progress: number): string {
 /** Colour of a lit mark in `state` (future marks are hidden, so they take the passed colour). */
 export function markFill(state: MarkState, current: string): string {
   return state === 'current' ? current : 'var(--hour-fill)'
+}
+
+/**
+ * Colour of the current mark in `mode`. Blend: the lighter tint deepening over the hour.
+ * Hour only and Solid: the passed colour from the start. Accent: its own highlight colour.
+ */
+export function currentMarkFill(mode: ClockFill, progress: number): string {
+  if (mode === 'blend') return currentFill(progress)
+  return mode === 'accent' ? 'var(--hour-accent)' : 'var(--hour-fill)'
+}
+
+/** Whether a mark in `state` is lit in `mode`: Hour only lights the current hour alone. */
+export function markLit(state: MarkState, mode: ClockFill): boolean {
+  return mode === 'hour' ? state === 'current' : state !== 'future'
+}
+
+/** Hour only already marks the new hour with its crossfade handoff, so it skips the flash. */
+export function modeFlashes(mode: ClockFill): boolean {
+  return mode !== 'hour'
 }

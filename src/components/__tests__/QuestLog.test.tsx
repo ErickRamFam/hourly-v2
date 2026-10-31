@@ -91,6 +91,19 @@ describe('removing a quest', () => {
     expect(latest.completions).toEqual({ [TODAY]: ['b'] })
   })
 
+  it('a second "Removed." replaces the message node, so the status region announces it again', async () => {
+    const user = userEvent.setup()
+    renderLog()
+    const status = within(document.querySelector('.log-head') as HTMLElement).getByRole('status')
+    await user.click(screen.getByRole('button', { name: 'Remove A' }))
+    const first = status.querySelector('.toast-text')
+    expect(first).toHaveTextContent('Removed.')
+    await user.click(screen.getByRole('button', { name: 'Remove C' }))
+    const second = status.querySelector('.toast-text')
+    expect(second).toHaveTextContent('Removed.')
+    expect(second).not.toBe(first)
+  })
+
   it('expires the undo message after about five seconds', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
@@ -211,6 +224,18 @@ describe('editing a quest', () => {
     expect(titles()).toEqual(['A', 'B', 'C'])
     expect(screen.queryByRole('textbox', { name: 'Edit quest title' })).toBeNull()
     expect(screen.getByRole('checkbox', { name: 'C' })).toHaveFocus()
+  })
+
+  it('Enter that ends an IME composition does not save the edit', async () => {
+    const user = userEvent.setup()
+    renderLog()
+    await user.click(screen.getByRole('button', { name: 'Edit A' }))
+    fireEvent.change(field(), { target: { value: 'にほん' } })
+    fireEvent.keyDown(field(), { key: 'Enter', isComposing: true })
+    expect(field()).toBeInTheDocument()
+    expect(latest.quests[0].title).toBe('A')
+    fireEvent.keyDown(field(), { key: 'Enter' })
+    expect(latest.quests[0].title).toBe('にほん')
   })
 
   it('an empty edit keeps the original title', async () => {

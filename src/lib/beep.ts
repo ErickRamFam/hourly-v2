@@ -33,6 +33,12 @@ export type Beeper = {
   schedule(delayMs: number): boolean
   /** Cancels the booked beep, if any. */
   cancel(): void
+  /**
+   * Cancels the booked beep only if it is still more than `graceS` away on the audio clock.
+   * At time up the audio clock should be at the beep; if it is far behind (the machine slept,
+   * the context was suspended), the beep would sound minutes after the timer ended.
+   */
+  cancelPending(graceS: number): void
   /** True while a beep is booked and has not finished. */
   readonly scheduled: boolean
   /** True once a context exists and is running (so a booked beep will actually play). */
@@ -44,6 +50,7 @@ export function createBeeper(Ctor: AudioCtor | null = audioCtor()): Beeper {
   let osc: OscillatorNode | null = null
   let gain: GainNode | null = null
   let endsAt = 0
+  let startsAt = 0
 
   const cancel = () => {
     if (osc) {
@@ -63,6 +70,7 @@ export function createBeeper(Ctor: AudioCtor | null = audioCtor()): Beeper {
     osc = null
     gain = null
     endsAt = 0
+    startsAt = 0
   }
 
   return {
@@ -71,7 +79,8 @@ export function createBeeper(Ctor: AudioCtor | null = audioCtor()): Beeper {
       try {
         if (!ctx) ctx = new Ctor()
         // Never closed: StrictMode double effects would leave a closed context behind.
-        if (ctx.state === 'suspended') void ctx.resume().catch(() => {})
+        // iOS reports 'interrupted' after a call or Siri; resume that too.
+        if (ctx.state !== 'running') void ctx.resume().catch(() => {})
         return true
       } catch {
         ctx = null
@@ -110,6 +119,7 @@ export function createBeeper(Ctor: AudioCtor | null = audioCtor()): Beeper {
         osc = o
         gain = g
         endsAt = stopAt
+        startsAt = t0
         return true
       } catch {
         cancel()
@@ -117,6 +127,9 @@ export function createBeeper(Ctor: AudioCtor | null = audioCtor()): Beeper {
       }
     },
     cancel,
+    cancelPending(graceS) {
+      if (osc && ctx && ctx.currentTime < startsAt - graceS) cancel()
+    },
     get scheduled() {
       return osc !== null && (!ctx || ctx.currentTime < endsAt)
     },

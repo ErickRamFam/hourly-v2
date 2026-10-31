@@ -61,7 +61,17 @@ function DialPreview({ dial, sky }: { dial: DialId; sky: Sky }) {
   return (
     <div className="preview flex items-center gap-5 pt-1.5 pb-3" data-dial={dial}>
       <div className="flex-none" style={{ width: PREVIEW.size, height: PREVIEW.size }}>
-        <Clock now={now} dial={dial} sky={sky} secondHand={settings.secondHand} reduceMotion={reduceMotion} use24h={settings.use24h} preview className="block size-full" />
+        <Clock
+          now={now}
+          dial={dial}
+          sky={sky}
+          secondHand={settings.secondHand}
+          reduceMotion={reduceMotion}
+          use24h={settings.use24h}
+          fill={settings.clockFill}
+          preview
+          className="block size-full"
+        />
       </div>
       <div>
         <div className="text-quest leading-[1.3] font-[450] text-ink">{info.name}</div>
@@ -75,19 +85,25 @@ function DialPreview({ dial, sky }: { dial: DialId; sky: Sky }) {
 const GROUP = 'group-title mt-7 mb-1.5 border-t border-line pt-3.5 font-serif text-group font-normal text-ink'
 
 export function CollectionPanel() {
-  const { owned, equipped } = useAppState()
+  const { owned, equipped, settings } = useAppState()
   const { balance, lifetime } = useLumens()
   const now = useNow('minute')
   const sky = getSky(equipped.sky)
-  const statusOf = (list: string[], current: string, id: string): Status => (current === id ? 'equipped' : list.includes(id) ? 'owned' : 'locked')
+  // Lumens off: everything not equipped reads as owned (Equip, no price, no Buy, no locked style).
+  const free = !settings.lumensEnabled
+  const statusOf = (list: string[], current: string, id: string): Status =>
+    current === id ? 'equipped' : list.includes(id) || free ? 'owned' : 'locked'
   const allOwned = DIALS.every((d) => owned.dials.includes(d.id)) && SKIES.every((s) => owned.skies.includes(s.id))
 
   return (
     <div className="collection">
-      <p className="balance mt-2.5 mb-0 text-body text-slate">
-        You have {lumens(balance)}, {lifetime} earned in all.
-      </p>
-      {allOwned && <p className="mt-2 mb-0 text-body text-slate">You have the whole collection.</p>}
+      {/* Lumens off: no balance and no "whole collection" line, out of the DOM entirely. */}
+      {!free && (
+        <p className="balance mt-2.5 mb-0 text-body text-slate">
+          You have {lumens(balance)}, {lifetime} earned in all.
+        </p>
+      )}
+      {!free && allOwned && <p className="mt-2 mb-0 text-body text-slate">You have the whole collection.</p>}
 
       <h3 className={GROUP}>Dials</h3>
       <DialPreview dial={equipped.dial as DialId} sky={sky} />
@@ -96,7 +112,7 @@ export function CollectionPanel() {
           const status = statusOf(owned.dials, equipped.dial, d.id)
           return (
             <li key={d.id} className={`item flex min-h-[66px] items-center gap-3.5 border-t border-line py-1.5 ${status === 'locked' ? 'locked' : ''}`} data-status={status}>
-              <DialArt dial={d.id} sky={sky} />
+              <DialArt dial={d.id} sky={sky} fill={settings.clockFill} />
               <span className="min-w-0 flex-1">
                 <span className="block text-quest leading-[1.3] font-[450] text-ink">{d.name}</span>
                 <span className="mt-0.5 block text-small font-normal text-slate">{d.description}</span>
