@@ -15,14 +15,21 @@ export function ConfirmDialog({ title, body, confirmLabel, cancelLabel = 'Cancel
   const titleId = useId()
   const bodyId = useId()
   const cancelRef = useRef<HTMLButtonElement>(null)
+  // The latest onCancel, so a parent re-render (a new inline callback each second while a timer
+  // ticks) never re-runs the effect below and pulls focus back to Cancel.
+  const cancel = useRef(onCancel)
+  useEffect(() => {
+    cancel.current = onCancel
+  })
 
+  // Once per open: focus Cancel, Escape cancels, focus returns to the opener on close.
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null
     cancelRef.current?.focus()
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onCancel()
+        cancel.current()
       }
     }
     document.addEventListener('keydown', onKey, true)
@@ -30,7 +37,7 @@ export function ConfirmDialog({ title, body, confirmLabel, cancelLabel = 'Cancel
       document.removeEventListener('keydown', onKey, true)
       opener?.focus()
     }
-  }, [onCancel])
+  }, [])
 
   return createPortal(
     // data-modal: portalled outside the rail panel; Rail's outside-click close skips it while open.

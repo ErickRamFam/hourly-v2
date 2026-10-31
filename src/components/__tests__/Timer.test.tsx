@@ -468,6 +468,56 @@ describe('time up', () => {
     expect(allBeeps()).toHaveLength(1)
   })
 
+  it('drops a beep still booked far ahead when the timer ends on a frozen audio clock (sleep, suspended context)', () => {
+    setup()
+    startWith('10')
+    expect(liveBeeps().map((o) => o.startAt)).toEqual([600])
+    // The audio clock stopped at 60s (lid closed); the wall clock runs on past the end.
+    FakeAudioContext.instances[0].currentTime = 60
+    advance(600_000)
+    expect(api.phase).toBe('done')
+    expect(liveBeeps()).toHaveLength(0)
+  })
+
+  it('keeps the beep when the audio clock is on time at the end', () => {
+    setup()
+    startWith('00:03')
+    FakeAudioContext.instances[0].currentTime = 2.9 // JS can land a moment before the audio clock
+    advance(3000)
+    expect(api.phase).toBe('done')
+    expect(liveBeeps()).toHaveLength(1)
+  })
+
+  it('after a reload, one tap (pointerup / touchend, not a mouse pointerdown) books the beep', () => {
+    saveTimer(storage, startTimer(120_000, T0))
+    setup()
+    expect(FakeAudioContext.instances).toHaveLength(0)
+    act(() => {
+      window.dispatchEvent(new Event('touchend', { bubbles: true }))
+    })
+    expect(liveBeeps()).toHaveLength(1)
+  })
+
+  it('focus on Pause timer moves to the label when the timer ends and the button goes', () => {
+    setup()
+    startWith('00:03')
+    pauseButton()!.focus()
+    FakeAudioContext.instances[0].currentTime = 3
+    advance(3000)
+    expect(pauseButton()).toBeNull()
+    expect(label()).toHaveFocus()
+  })
+
+  it('MediaPlayPause with the field open closes it and puts focus back on the label', () => {
+    setup()
+    startWith('10')
+    fireEvent.click(label())
+    expect(field()).toHaveFocus()
+    press('MediaPlayPause')
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(label()).toHaveFocus()
+  })
+
   it('with reduced motion: no fades or pulse, a brief static ring, still the beep', () => {
     setup({ reduceMotion: true })
     startWith('10')
@@ -476,6 +526,7 @@ describe('time up', () => {
     expect(document.querySelector('.timer-pulse')).toBeNull()
     fireEvent.click(label())
     type('00:02')
+    FakeAudioContext.instances[0].currentTime = 2 // the audio clock keeps time with the wall clock
     advance(2000)
     expect(bar()).not.toHaveClass('timer-done')
     expect(bar()).toHaveAttribute('data-sweep', '360')

@@ -117,8 +117,10 @@ html[data-hue-ready] {
   font-family: var(--font-sans); font-size: 15px; line-height: 1; font-weight: 500;
   letter-spacing: 0.01em; font-variant-numeric: tabular-nums;
 }
+/* z-index 1: where the pause/play hit area overlaps the time (6px, 12px on touch), the time wins,
+   so a tap on its last digit opens the field instead of pausing. */
 .timer-button {
-  position: relative; display: block; padding: 4px 6px; border-radius: var(--radius-control); color: var(--slate);
+  position: relative; z-index: 1; display: block; padding: 4px 6px; border-radius: var(--radius-control); color: var(--slate);
   transition: background-color var(--duration-swift) var(--ease-settle), color var(--duration-swift) var(--ease-settle);
 }
 .timer-label[data-phase="running"] .timer-button, .timer-label[data-phase="paused"] .timer-button { color: var(--ink); }
@@ -180,6 +182,8 @@ html[data-hue-ready] {
 }
 .row .row-actions:has(:focus-visible) { opacity: 1; }
 .row .meta { padding-top: 4px; }
+/* A title with no spaces (a URL) breaks inside the row instead of running under Edit/Remove. */
+.row .qtitle { min-width: 0; overflow-wrap: anywhere; }
 /* The edit field: the title's own type, an underline instead of a box. */
 .row .qedit {
   min-width: 0; padding: 0; margin: 0; background: transparent; border: 0; border-radius: 0;

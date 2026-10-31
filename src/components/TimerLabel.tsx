@@ -28,6 +28,13 @@ export function TimerLabel({ timer, reduceMotion }: { timer: Timer; reduceMotion
    * quiet until the user actually uses the keyboard to move (Tab) or focus leaves.
    */
   const [quiet, setQuiet] = useState(false)
+  /**
+   * Focus is inside the label. Set on focus, cleared when focus leaves for somewhere else. A
+   * focused control that is removed (the pause button at time up, the field closed by
+   * MediaPlayPause) fires no blur, so focus would drop to <body>; the effect below catches that
+   * and puts it on the time.
+   */
+  const hasFocus = useRef(false)
   const { phase, editing } = timer
 
   useEffect(() => {
@@ -89,13 +96,26 @@ export function TimerLabel({ timer, reduceMotion }: { timer: Timer; reduceMotion
     if (typeof data === 'string' && data.length === 1 && !/\d/.test(data)) e.preventDefault()
   }
 
+  useEffect(() => {
+    if (hasFocus.current && (document.activeElement === document.body || document.activeElement === null)) buttonRef.current?.focus()
+  })
+
   const cue = phase === 'paused' && !editing
   /** The toggle slot: shown only while counting down or paused, and never over an open field. */
   const slot = !editing && (phase === 'running' || phase === 'paused')
   const shown = phase === 'idle' || phase === 'done' ? '00:00' : formatTimer(timer.remainingMs)
 
   return (
-    <div className="timer-label" data-phase={phase}>
+    <div
+      className="timer-label"
+      data-phase={phase}
+      onFocus={() => {
+        hasFocus.current = true
+      }}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) hasFocus.current = false
+      }}
+    >
       {editing ? (
         <input
           ref={inputRef}
