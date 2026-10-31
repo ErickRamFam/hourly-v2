@@ -115,6 +115,26 @@ function Row({ label, labelId, helper, helperId, children }: { label: string; la
   )
 }
 
+/**
+ * A titled set of rows (DESIGN.md §8): the same serif group title as Collection's "Dials" and
+ * "Skies", so the panel reads Appearance, Clock, General, then Clear all data. Groups are
+ * separated by space alone; the hairlines stay between rows, so a group reads as one block.
+ */
+function Group({ title, first = false, children }: { title: string; first?: boolean; children: React.ReactNode }) {
+  const id = useId()
+  return (
+    <section className="sgroup" aria-labelledby={id}>
+      <h3
+        id={id}
+        className={`group-title mb-0.5 font-serif text-group font-normal text-ink ${first ? 'mt-5' : 'mt-8'}`}
+      >
+        {title}
+      </h3>
+      <ul className="srows m-0 list-none p-0">{children}</ul>
+    </section>
+  )
+}
+
 const CLOCK_FILL_OPTIONS: readonly { value: ClockFill; label: string; helper: string }[] = [
   { value: 'blend', label: 'Blend', helper: 'Each hour fills in, and the current hour fades into the fill.' },
   { value: 'hour', label: 'Hour only', helper: 'Only the current hour is lit.' },
@@ -136,86 +156,90 @@ export function SettingsPanel() {
 
   return (
     <div className="settings flex flex-1 flex-col">
-      <ul className="srows m-0 mt-2 list-none p-0">
-        <Row label="Theme">
-          <Choice<ThemeOverride>
-            label="Theme"
-            value={settings.themeOverride}
-            options={[
-              { value: 'auto', label: 'Auto' },
-              { value: 'light', label: 'Light' },
-              { value: 'dark', label: 'Dark' },
-            ]}
-            onChange={(themeOverride) => set({ themeOverride })}
-          />
-        </Row>
-        <Row label="Day begins" labelId={dayId}>
-          <Stepper labelId={dayId} value={settings.dayStart} use24h={settings.use24h} onChange={(dayStart) => set({ dayStart })} />
-        </Row>
-        <Row label="Night begins" labelId={nightId}>
-          <Stepper labelId={nightId} value={settings.nightStart} use24h={settings.use24h} onChange={(nightStart) => set({ nightStart })} />
-        </Row>
-        <Row label="Default timer" labelId={timerId}>
-          <MinuteStepper labelId={timerId} value={settings.defaultTimerSec} onChange={(defaultTimerSec) => set({ defaultTimerSec })} />
-        </Row>
-        <Row label="Second hand">
-          <Choice<SecondHandMode>
-            label="Second hand"
-            value={settings.secondHand}
-            options={[
-              { value: 'sweep', label: 'Sweep' },
-              { value: 'tick', label: 'Tick' },
-              { value: 'hidden', label: 'Hidden' },
-            ]}
-            onChange={(secondHand) => set({ secondHand })}
-          />
-        </Row>
-        <Row label="Clock labels">
-          <Choice<'12h' | '24h'>
-            label="Clock labels"
-            value={settings.use24h ? '24h' : '12h'}
-            options={[
-              { value: '12h', label: '12h' },
-              { value: '24h', label: '24h' },
-            ]}
-            onChange={(v) => set({ use24h: v === '24h' })}
-          />
-        </Row>
-        <Row label="Clock display" helper={CLOCK_FILL_OPTIONS.find((o) => o.value === settings.clockFill)?.helper} helperId={fillHelpId}>
-          <Choice<ClockFill>
-            label="Clock display"
-            value={settings.clockFill}
-            options={CLOCK_FILL_OPTIONS}
-            describedBy={fillHelpId}
-            onChange={(clockFill) => set({ clockFill })}
-          />
-        </Row>
-        <Row label="Reduce motion">
-          <Choice<ReduceMotion>
-            label="Reduce motion"
-            value={settings.reduceMotion}
-            options={[
-              { value: 'system', label: 'Off' },
-              { value: 'on', label: 'On' },
-            ]}
-            onChange={(reduceMotion) => set({ reduceMotion })}
-          />
-        </Row>
-        <Row label="Lumens" helper={settings.lumensEnabled ? undefined : 'Everything in your collection is unlocked.'} helperId={lumensHelpId}>
-          <Choice<'on' | 'off'>
-            label="Lumens"
-            describedBy={settings.lumensEnabled ? undefined : lumensHelpId}
-            value={settings.lumensEnabled ? 'on' : 'off'}
-            options={[
-              { value: 'on', label: 'On' },
-              { value: 'off', label: 'Off' },
-            ]}
-            onChange={(v) => set({ lumensEnabled: v === 'on' })}
-          />
-        </Row>
-      </ul>
+      <Group title="Appearance" first>
+          <Row label="Theme">
+            <Choice<ThemeOverride>
+              label="Theme"
+              value={settings.themeOverride}
+              options={[
+                { value: 'auto', label: 'Auto' },
+                { value: 'light', label: 'Light' },
+                { value: 'dark', label: 'Dark' },
+              ]}
+              onChange={(themeOverride) => set({ themeOverride })}
+            />
+          </Row>
+          <Row label="Day begins" labelId={dayId}>
+            <Stepper labelId={dayId} value={settings.dayStart} use24h={settings.use24h} onChange={(dayStart) => set({ dayStart })} />
+          </Row>
+          <Row label="Night begins" labelId={nightId}>
+            <Stepper labelId={nightId} value={settings.nightStart} use24h={settings.use24h} onChange={(nightStart) => set({ nightStart })} />
+          </Row>
+      </Group>
+      <Group title="Clock">
+          <Row label="Clock display" helper={CLOCK_FILL_OPTIONS.find((o) => o.value === settings.clockFill)?.helper} helperId={fillHelpId}>
+            <Choice<ClockFill>
+              label="Clock display"
+              value={settings.clockFill}
+              options={CLOCK_FILL_OPTIONS}
+              describedBy={fillHelpId}
+              onChange={(clockFill) => set({ clockFill })}
+            />
+          </Row>
+          <Row label="Second hand">
+            <Choice<SecondHandMode>
+              label="Second hand"
+              value={settings.secondHand}
+              options={[
+                { value: 'sweep', label: 'Sweep' },
+                { value: 'tick', label: 'Tick' },
+                { value: 'hidden', label: 'Hidden' },
+              ]}
+              onChange={(secondHand) => set({ secondHand })}
+            />
+          </Row>
+          <Row label="Clock labels">
+            <Choice<'12h' | '24h'>
+              label="Clock labels"
+              value={settings.use24h ? '24h' : '12h'}
+              options={[
+                { value: '12h', label: '12h' },
+                { value: '24h', label: '24h' },
+              ]}
+              onChange={(v) => set({ use24h: v === '24h' })}
+            />
+          </Row>
+          <Row label="Default timer" labelId={timerId}>
+            <MinuteStepper labelId={timerId} value={settings.defaultTimerSec} onChange={(defaultTimerSec) => set({ defaultTimerSec })} />
+          </Row>
+      </Group>
+      <Group title="General">
+          <Row label="Reduce motion">
+            <Choice<ReduceMotion>
+              label="Reduce motion"
+              value={settings.reduceMotion}
+              options={[
+                { value: 'system', label: 'Off' },
+                { value: 'on', label: 'On' },
+              ]}
+              onChange={(reduceMotion) => set({ reduceMotion })}
+            />
+          </Row>
+          <Row label="Lumens" helper={settings.lumensEnabled ? undefined : 'Everything in your collection is unlocked.'} helperId={lumensHelpId}>
+            <Choice<'on' | 'off'>
+              label="Lumens"
+              describedBy={settings.lumensEnabled ? undefined : lumensHelpId}
+              value={settings.lumensEnabled ? 'on' : 'off'}
+              options={[
+                { value: 'on', label: 'On' },
+                { value: 'off', label: 'Off' },
+              ]}
+              onChange={(v) => set({ lumensEnabled: v === 'on' })}
+            />
+          </Row>
+      </Group>
 
-      <div className="danger mt-7 border-t border-line pt-4">
+      <div className="danger mt-8 border-t border-line pt-4">
         <button type="button" className="press text-[15px] font-medium text-pewter" onClick={() => setConfirming(true)}>
           Clear all data
         </button>
