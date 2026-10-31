@@ -556,8 +556,15 @@ margin 28 0 6, padding-top 14, `border-top: 1px line`.
   lumens keep being earned silently. Turning Lumens back on puts an equipped dial or sky that
   was never bought back to Lantern / Daylight; bought items stay owned and equipped.
 
-**Settings.** Rows: min-height 56, padding 8 0, `border-top: 1px line` (none on the
-first); label body `ink` left, control right.
+**Settings.** Three groups, in this order, each under a serif group title (19, `ink`, the
+same face as Collection's "Dials" / "Skies"): *Appearance* (Theme, Day begins, Night
+begins), *Clock* (Clock display, Second hand, Clock labels, Default timer: the timer sits on
+the clock), *General* (Reduce motion, Lumens). Then Clear all data and the tagline. Groups
+are separated by space alone, 32px above each title after the first (20px for the first,
+under the panel head), 2px below it; no hairline above a title, so the hairlines between
+rows are the only lines and each group reads as one block. Each group is a `section`
+labelled by its title. Rows: min-height 56, padding 8 0, `border-top: 1px line` (none on
+the first row of a group); label body `ink` left, control right.
 - *Segmented choice* (Theme, Second hand, Clock labels, Clock display, Reduce motion, Lumens): options as plain
   text 15/500 `slate`, 18px apart, padding 4 0 8. Selected: `ink` with a 2px
   `--hour-fill` underline (radius 999, `0 0 8px --hour-soft`), class `.lit-underline`.
@@ -565,15 +572,14 @@ first); label body `ink` left, control right.
   Rows wrap: a control too wide to sit beside its label (Clock display's four options at
   360px) drops under it, left-aligned, and its options wrap. A helper line, small `slate`,
   sits under the row: Clock display always (describing the selected mode), Lumens only
-  while Off. Order: Theme, Day begins, Night begins, Default timer, Second hand, Clock
-  labels, Clock display, Reduce motion, Lumens.
+  while Off.
 - *Stepper* (Day begins, Night begins, Default timer): 36px tall, radius 10, `inset 0 0 0 1px
   line-strong`; "−" and "+" 32×36 in `slate` 18px; value 56px min, tabular 15/500; steps
   by one hour. The value follows Clock labels: "6 am" / "7 pm" in 12h, "6:00" / "19:00" in
   24h. Default timer steps by one minute from "1:00" to "60:00" and clamps (no wrap; at a
   limit the button stays enabled and does nothing, so focus stays). Default 30:00; it is what
   P starts when no timer is set.
-- *Clear all data:* 28px below the rows with a hairline above, a text button 15/500
+- *Clear all data:* 32px below the last group with a hairline above, a text button 15/500
   `pewter`. The tagline sits at the panel foot, serif italic 15 `slate`.
 
 **Confirm dialog.** Centered, 360 (max `100vw − 32`), radius 18, `paper` (opaque), dialog
@@ -655,12 +661,13 @@ and seconds"; at the end "Time is up" (status region and system notification); t
 
 Rail tooltips: "Today", "Collection", "Settings", "12 lumens".
 
-Settings: title "Settings"; rows "Theme" (Auto / Light / Dark), "Day begins", "Night
-begins", "Default timer" (1:00 to 60:00), "Second hand" (Sweep / Tick / Hidden), "Clock labels" (12h / 24h), "Clock display"
-(Blend / Hour only / Solid / Accent; helper under the row: "Each hour fills in, and the
-current hour fades into the fill." / "Only the current hour is lit." / "Each hour fills in as
-one solid color." / "The current hour stands out in its own color."), "Reduce motion"
-(Off / On), "Lumens" (On / Off; helper while Off: "Everything in your collection is unlocked.");
+Settings: title "Settings"; group "Appearance": rows "Theme" (Auto / Light / Dark), "Day
+begins", "Night begins"; group "Clock": "Clock display" (Blend / Hour only / Solid / Accent;
+helper under the row: "Each hour fills in, and the current hour fades into the fill." /
+"Only the current hour is lit." / "Each hour fills in as one solid color." / "The current
+hour stands out in its own color."), "Second hand" (Sweep / Tick / Hidden), "Clock labels"
+(12h / 24h), "Default timer" (1:00 to 60:00); group "General": "Reduce motion" (Off / On),
+"Lumens" (On / Off; helper while Off: "Everything in your collection is unlocked.");
 button "Clear all data"; dialog title "Clear all data?", body "Quests, lumens,
 and your collection will be removed from this browser." (Lumens off: "Quests and your
 collection will be removed from this browser."), buttons "Cancel" / "Clear

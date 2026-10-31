@@ -100,11 +100,9 @@ describe('day/night steppers', () => {
 })
 
 describe('Default timer', () => {
-  it('sits between Night begins and Second hand, steps a minute and clamps at 1:00 and 60:00', async () => {
+  it('steps a minute and clamps at 1:00 and 60:00', async () => {
     const user = userEvent.setup()
     renderSettings({ defaultTimerSec: 120 })
-    const labels = Array.from(document.querySelectorAll('.srow > span:first-child')).map((el) => el.textContent)
-    expect(labels.slice(2, 5)).toEqual(['Night begins', 'Default timer', 'Second hand'])
     const group = screen.getByRole('group', { name: 'Default timer' })
     const shorter = within(group).getByRole('button', { name: 'Shorter' })
     const longer = within(group).getByRole('button', { name: 'Longer' })
@@ -132,14 +130,30 @@ describe('Default timer', () => {
   })
 })
 
-const rowLabels = () => Array.from(document.querySelectorAll('.srow > span:first-child')).map((el) => el.textContent)
+describe('layout', () => {
+  it('groups the rows: Appearance, Clock, General, then Clear all data', () => {
+    renderSettings()
+    const groups = Array.from(document.querySelectorAll('.sgroup')).map((g) => ({
+      title: within(g as HTMLElement).getByRole('heading', { level: 3 }).textContent,
+      rows: Array.from(g.querySelectorAll('.srow > span:first-child')).map((el) => el.textContent),
+    }))
+    expect(groups).toEqual([
+      { title: 'Appearance', rows: ['Theme', 'Day begins', 'Night begins'] },
+      { title: 'Clock', rows: ['Clock display', 'Second hand', 'Clock labels', 'Default timer'] },
+      { title: 'General', rows: ['Reduce motion', 'Lumens'] },
+    ])
+    // Each group is a labelled region, so screen readers can jump between them.
+    for (const name of ['Appearance', 'Clock', 'General']) expect(screen.getByRole('region', { name })).toBeInTheDocument()
+    // Clear all data comes after every group.
+    const last = document.querySelectorAll('.sgroup')[2]
+    expect(last.compareDocumentPosition(screen.getByRole('button', { name: 'Clear all data' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
 
 describe('Clock display', () => {
-  it('sits after Clock labels, defaults to Blend and describes the selected mode', async () => {
+  it('defaults to Blend and describes the selected mode', async () => {
     const user = userEvent.setup()
     renderSettings()
-    const labels = rowLabels()
-    expect(labels[labels.indexOf('Clock labels') + 1]).toBe('Clock display')
     const group = screen.getByRole('radiogroup', { name: 'Clock display' })
     expect(within(group).getAllByRole('radio').map((r) => r.textContent)).toEqual(['Blend', 'Hour only', 'Solid', 'Accent'])
     expect(within(group).getByRole('radio', { name: 'Blend' })).toHaveAttribute('aria-checked', 'true')
@@ -189,12 +203,9 @@ describe('Clock display', () => {
 })
 
 describe('Lumens', () => {
-  it('sits after Reduce motion, before Clear all data, with a helper only while Off', async () => {
+  it('has a helper only while Off', async () => {
     const user = userEvent.setup()
     renderSettings()
-    const labels = rowLabels()
-    expect(labels.at(-2)).toBe('Reduce motion')
-    expect(labels.at(-1)).toBe('Lumens')
     const group = screen.getByRole('radiogroup', { name: 'Lumens' })
     const row = group.closest('.srow')!
     expect(within(group).getByRole('radio', { name: 'On' })).toHaveAttribute('aria-checked', 'true')
